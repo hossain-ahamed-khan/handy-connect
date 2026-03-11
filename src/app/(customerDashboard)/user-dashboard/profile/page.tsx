@@ -24,7 +24,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] py-16 lg:py-16 relative font-sans">
+    <div className=" bg-[#F8FAFC] py-16 lg:py-16 relative font-sans">
       {/* Top Right Help Trigger */}
       <button
         onClick={() => setIsHelpModalOpen(true)}
