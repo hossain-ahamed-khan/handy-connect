@@ -5,6 +5,7 @@ import { Drawer, Dropdown } from "antd";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import { TiArrowSortedDown } from "react-icons/ti";
@@ -19,9 +20,9 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { theme } = useTheme();
+  const pathname = usePathname();
 
-  // const user = false; // Not logged in
-  const user = true; // Logged in
+  const user = false; // Not logged in
 
   useEffect(() => {
     setMounted(true);
@@ -63,9 +64,20 @@ export default function Navbar() {
     // },
   ];
 
+  const navLinks = [
+    { href: "/", label: "Home" },
+    { href: "/city-services", label: "City Services" },
+    { href: "/how-it-works", label: "How It Works" },
+    { href: "/about", label: "About Us" },
+    { href: "/for-professionals", label: "For Professionals" },
+  ];
+
+  const isActiveRoute = (href: string) =>
+    (href === "/" && pathname === "/") || (href !== "/" && pathname === href);
+
   return (
     <nav className="sticky top-0 z-50 bg-white dark:bg-slate-900 transition-colors">
-      <div className="container mx-auto px-4 flex items-center justify-between h-16">
+      <div className="container mx-auto px-4 flex items-center justify-between h-20">
         {/* Left - Logo */}
         <Link href="/" className="flex flex-col">
           <Image
@@ -76,6 +88,21 @@ export default function Navbar() {
             className="w-40 md:w-60 h-auto"
           />
         </Link>
+
+        {/* Center - Nav Links (Desktop) */}
+        <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-700">
+          {navLinks.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`transition-colors hover:text-primary ${
+                isActiveRoute(item.href) ? "text-primary" : "text-slate-700"
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
 
         {/* Right - Theme Toggle & Buttons (Desktop) */}
         <div className="hidden md:flex items-center gap-3">
@@ -102,11 +129,15 @@ export default function Navbar() {
           ) : (
             // When user is NOT logged in - show Login button
             <>
-              <Link href="/signup">
-                <CustomPrimaryButton>Get Started</CustomPrimaryButton>
-              </Link>
               <Link href="/login">
-                <CustomSecondaryButton>Login</CustomSecondaryButton>
+                <CustomSecondaryButton className="px-6 py-2 rounded-xl border-2 border-primary text-primary">
+                  Log in
+                </CustomSecondaryButton>
+              </Link>
+              <Link href="/signup">
+                <CustomPrimaryButton className="px-6 py-2 rounded-xl">
+                  Get Started
+                </CustomPrimaryButton>
               </Link>
             </>
           )}
@@ -174,6 +205,23 @@ export default function Navbar() {
           className="flex flex-col p-4 space-y-2 h-full"
           style={{ backgroundColor: drawerBg }}
         >
+          {/* Drawer Links */}
+          <div className="flex flex-col gap-4 mt-4">
+            {navLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={toggleDrawer}
+                className={`font-semibold text-base hover:text-primary transition-colors ${
+                  isActiveRoute(item.href) ? "text-primary" : ""
+                }`}
+                style={{ color: isDark ? "#f1f5f9" : "#111827" }}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+
           {/* Drawer Buttons */}
           <div className="flex flex-col gap-3 mt-6">
             {user ? (
@@ -205,15 +253,15 @@ export default function Navbar() {
             ) : (
               // When user is NOT logged in - show Login button
               <>
-                <Link href="/" onClick={toggleDrawer}>
-                  <CustomPrimaryButton className="w-full">
+                <Link href="/login" onClick={toggleDrawer}>
+                  <CustomSecondaryButton className="w-full px-4 py-1 rounded-xl border-2 border-primary text-primary">
+                    Log in
+                  </CustomSecondaryButton>
+                </Link>
+                <Link href="/signup" onClick={toggleDrawer}>
+                  <CustomPrimaryButton className="w-full px-4 py-1 rounded-xl">
                     Get Started
                   </CustomPrimaryButton>
-                </Link>
-                <Link href="/login" onClick={toggleDrawer}>
-                  <CustomSecondaryButton className="w-full">
-                    Login
-                  </CustomSecondaryButton>
                 </Link>
               </>
             )}

@@ -3,7 +3,7 @@ import { FaArrowRightLong } from "react-icons/fa6";
 
 export default function CTA() {
   return (
-    <section className="bg-[#2563EB] py-20 px-6 text-center">
+    <section className="bg-[#F59E0B] py-20 px-6 text-center">
       <div className="max-w-7xl mx-auto">
         <h2 className="text-white text-2xl md:text-3xl font-bold mb-4">
           Ready to Start Your Journey?

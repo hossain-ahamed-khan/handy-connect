@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   FaFacebookF,
@@ -6,6 +7,7 @@ import {
   FaTwitter,
   FaWrench,
 } from "react-icons/fa";
+import main_logo from "../../assets/main_logo.svg";
 
 export default function Footer() {
   const popularServices = [
@@ -32,18 +34,26 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-[#0B1221] text-white py-16 px-6 md:px-12">
+    <footer className="bg-[#000000] text-white py-16 px-6 md:px-12">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12">
           {/* Brand Section - Spans 4 columns for balance */}
           <div className="lg:col-span-4 space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-[#2563EB] p-2 rounded-lg flex items-center justify-center">
-                <FaWrench className="text-white text-lg" />
-              </div>
-              <h2 className="text-xl font-bold tracking-tight">
-                Handy Connect
-              </h2>
+            <div className="flex items-center justify-start gap-3">
+              <Link href="/">
+                <Image
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                  }}
+                  width={500}
+                  height={300}
+                  src={main_logo}
+                  alt="main_logo"
+                />
+                <h1 className="text-xl font-bold tracking-tight">Handy Connect</h1>
+              </Link>
+
             </div>
             <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
               Connecting homeowners with trusted, verified service professionals
