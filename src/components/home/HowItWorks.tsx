@@ -29,9 +29,9 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section className="bg-white py-20 px-6">
+    <section className="bg-white py-24 px-6">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-14">
+        <div className="text-center mb-16">
           <h2 className="text-[28px] md:text-[30px] font-bold text-[#0F172A]">
             How It Works
           </h2>
@@ -48,7 +48,7 @@ export default function HowItWorks() {
               const Icon = step.icon;
               return (
                 <div key={step.id} className="text-center">
-                  <div className="relative w-fit mx-auto">
+                  <div className="relative w-fit mx-auto mb-4">
                     <div className="w-16 h-16 rounded-2xl bg-[#EEF4FF] flex items-center justify-center">
                       <Icon className="text-[#2563EB] text-2xl" />
                     </div>

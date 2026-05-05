@@ -10,8 +10,6 @@ import { useEffect, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import { TiArrowSortedDown } from "react-icons/ti";
 import default_img from "../../assets/user_img_default.png";
-import CustomPrimaryButton from "./CustomPrimaryButton";
-import CustomSecondaryButton from "./CustomSecondaryButton";
 // import ThemeToggle from "./ThemeToggle";
 
 import main_logo from "../../assets/main_logo.svg";
@@ -95,9 +93,8 @@ export default function Navbar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`transition-colors hover:text-primary ${
-                isActiveRoute(item.href) ? "text-primary" : "text-slate-700"
-              }`}
+              className={`transition-colors hover:text-primary ${isActiveRoute(item.href) ? "text-primary" : "text-slate-700"
+                }`}
             >
               {item.label}
             </Link>
@@ -130,14 +127,14 @@ export default function Navbar() {
             // When user is NOT logged in - show Login button
             <>
               <Link href="/login">
-                <CustomSecondaryButton className="px-6 py-2 rounded-xl border-2 border-primary text-primary">
+                <button className="px-6 py-1.5 rounded-xl border-2 border-primary text-primary hover:bg-primary hover:text-white cursor-pointer">
                   Log in
-                </CustomSecondaryButton>
+                </button>
               </Link>
               <Link href="/signup">
-                <CustomPrimaryButton className="px-6 py-2 rounded-xl">
+                <button className="px-6 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 cursor-pointer">
                   Get Started
-                </CustomPrimaryButton>
+                </button>
               </Link>
             </>
           )}
@@ -212,9 +209,8 @@ export default function Navbar() {
                 key={item.href}
                 href={item.href}
                 onClick={toggleDrawer}
-                className={`font-semibold text-base hover:text-primary transition-colors ${
-                  isActiveRoute(item.href) ? "text-primary" : ""
-                }`}
+                className={`font-semibold text-base hover:text-primary transition-colors ${isActiveRoute(item.href) ? "text-primary" : ""
+                  }`}
                 style={{ color: isDark ? "#f1f5f9" : "#111827" }}
               >
                 {item.label}
@@ -253,15 +249,15 @@ export default function Navbar() {
             ) : (
               // When user is NOT logged in - show Login button
               <>
-                <Link href="/login" onClick={toggleDrawer}>
-                  <CustomSecondaryButton className="w-full px-4 py-1 rounded-xl border-2 border-primary text-primary">
+                <Link href="/login">
+                  <button className="px-6 py-1.5 rounded-xl border-2 border-primary text-primary hover:bg-primary hover:text-white cursor-pointer">
                     Log in
-                  </CustomSecondaryButton>
+                  </button>
                 </Link>
-                <Link href="/signup" onClick={toggleDrawer}>
-                  <CustomPrimaryButton className="w-full px-4 py-1 rounded-xl">
+                <Link href="/signup">
+                  <button className="px-6 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 cursor-pointer">
                     Get Started
-                  </CustomPrimaryButton>
+                  </button>
                 </Link>
               </>
             )}
