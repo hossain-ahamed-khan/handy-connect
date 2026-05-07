@@ -1,6 +1,4 @@
 "use client";
-
-import Header from "@/app/(customerDashboard)/user-dashboard/components/sharedDashboardComp/Header";
 import Sidebar from "@/app/(customerDashboard)/user-dashboard/components/sharedDashboardComp/Sidebar";
 import { useState } from "react";
 
@@ -32,9 +30,6 @@ export default function AdminLayout({
 
       {/* Main Content - with left margin for desktop sidebar */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
-        {/* Header */}
-        <Header toggleSidebar={toggleSidebar} />
-
         {/* Page Content */}
         <main className="flex-1 p-4 md:p-6 overflow-auto">{children}</main>
       </div>
