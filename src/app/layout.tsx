@@ -1,6 +1,3 @@
-import StoreProvider from "@/Providers/StoreProvider";
-import ThemeProvider from "@/Providers/ThemeProvider";
-import { AntdRegistry } from "@ant-design/nextjs-registry";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -23,13 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased`}>
-        <StoreProvider>
-          <AntdRegistry>
-            <ThemeProvider>
-              <>{children}</>
-            </ThemeProvider>
-          </AntdRegistry>
-        </StoreProvider>
+        {children}
       </body>
     </html>
   );

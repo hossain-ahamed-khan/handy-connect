@@ -8,20 +8,27 @@ import { IoIosLogOut } from "react-icons/io";
 import {
   MdAccessTime,
   MdAttachMoney,
+  MdCategory,
+  MdChat,
   MdClose,
   MdDashboard,
   MdDescription,
+  MdHistory,
+  MdLocationCity,
   MdNotifications,
   MdPeople,
   MdPerson,
   MdSettings,
+  MdSmartToy,
   MdStar,
+  MdTimeline,
+  MdVerifiedUser,
   MdWork,
 } from "react-icons/md";
 import Swal from "sweetalert2";
 import main_logo from "../../../../../assets/main_logo.svg";
 
-type UserRole = "user" | "professional";
+type UserRole = "user" | "professional" | "admin";
 
 const userNavigation = [
   {
@@ -87,6 +94,62 @@ const professionalNavigation = [
   },
 ];
 
+const adminNavigation = [
+  {
+    section: "Admin",
+    items: [
+      { name: "Dashboard", icon: MdDashboard, href: "/admin-dashboard" },
+      {
+        name: "Lead History",
+        icon: MdHistory,
+        href: "/admin-dashboard/lead-history",
+      },
+      {
+        name: "Lead Monitor",
+        icon: MdTimeline,
+        href: "/admin-dashboard/lead-monitor",
+      },
+      {
+        name: "Notifications",
+        icon: MdNotifications,
+        href: "/admin-dashboard/notifications",
+      },
+      {
+        name: "Chat View",
+        icon: MdChat,
+        href: "/admin-dashboard/chat-view",
+      },
+      { name: "Users", icon: MdPeople, href: "/admin-dashboard/users" },
+      {
+        name: "Verification",
+        icon: MdVerifiedUser,
+        href: "/admin-dashboard/verification",
+      },
+      { name: "Jobs", icon: MdWork, href: "/admin-dashboard/jobs" },
+      {
+        name: "Categories",
+        icon: MdCategory,
+        href: "/admin-dashboard/categories",
+      },
+      {
+        name: "Financial",
+        icon: MdAttachMoney,
+        href: "/admin-dashboard/financial",
+      },
+      {
+        name: "AI Control",
+        icon: MdSmartToy,
+        href: "/admin-dashboard/ai-control",
+      },
+      {
+        name: "City Management",
+        icon: MdLocationCity,
+        href: "/admin-dashboard/city-management",
+      },
+    ],
+  },
+];
+
 interface NavItem {
   name: string;
   icon: React.ElementType;
@@ -110,7 +173,11 @@ export default function Sidebar({ isOpen, toggleSidebar, role }: SidebarProps) {
   const router = useRouter();
 
   const navigation: NavSection[] =
-    role === "professional" ? professionalNavigation : userNavigation;
+    role === "professional"
+      ? professionalNavigation
+      : role === "admin"
+        ? adminNavigation
+        : userNavigation;
 
   // useEffect(() => {
   //   if (isOpen) {
@@ -201,11 +268,10 @@ export default function Sidebar({ isOpen, toggleSidebar, role }: SidebarProps) {
                     <li key={item.name}>
                       <Link
                         href={item.href}
-                        className={`flex items-center gap-3 p-4 rounded-xl transition-colors ${
-                          isActive
+                        className={`flex items-center gap-3 p-4 rounded-xl transition-colors ${isActive
                             ? "bg-primary/10 border-l-4 border-primary text-primary"
                             : "text-black hover:bg-primary/20 hover:text-primary"
-                        }`}
+                          }`}
                       >
                         <Icon className="w-5 h-5 shrink-0" />
                         <span className="text-sm font-medium truncate flex-1">
