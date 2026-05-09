@@ -13,3 +13,21 @@ const registerApi = baseApi.injectEndpoints({
 })
 
 export const { useRegisterMutation } = registerApi;
+
+
+
+
+
+const verifyEmailApi = baseApi.injectEndpoints({
+    endpoints: (builder) => ({
+        verifyEmail: builder.mutation({
+            query: (formData) => ({
+                url: '/api/auth/verify-otp/',
+                method: 'POST',
+                body: formData
+            })
+        }),
+    })
+})
+
+export const { useVerifyEmailMutation } = verifyEmailApi;

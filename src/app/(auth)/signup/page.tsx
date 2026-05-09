@@ -1,11 +1,16 @@
 "use client";
 
-import { Button, Form, Input, theme } from "antd";
+import { Button, Form, Input, Modal, message, theme } from "antd";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FaApple, FaArrowLeft } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
+import {
+  useRegisterMutation,
+  useVerifyEmailMutation,
+} from "@/redux/features/register/registerApi";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 interface SignupFormValues {
   name: string;
@@ -18,22 +23,58 @@ interface SignupFormValues {
 
 type Role = "customer" | "professional";
 
+interface OtpFormValues {
+  code: string;
+}
+
 const Signup: React.FC = () => {
   const router = useRouter();
   const [form] = Form.useForm<SignupFormValues>();
+  const [otpForm] = Form.useForm<OtpFormValues>();
   const { token } = theme.useToken();
   const [selectedRole, setSelectedRole] = useState<Role>("customer");
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
-  const isLoading = false;
+  const [register, { isLoading: isRegistering }] = useRegisterMutation();
+  const [verifyEmail, { isLoading: isVerifying }] = useVerifyEmailMutation();
 
   const onFinish = async (values: SignupFormValues): Promise<void> => {
     try {
-      console.log("Signup form values:", { ...values, role: selectedRole });
-      setTimeout(() => {
-        router.push("/login");
-      }, 500);
+      const payload = {
+        email: values.email,
+        username: values.name,
+        password: values.password,
+        re_password: values.confirmPassword,
+        role: selectedRole === "professional" ? "PROVIDER" : "CUSTOMER",
+        phone_number: values.phone,
+      };
+
+      await register(payload).unwrap();
+      setPendingEmail(values.email);
+      otpForm.resetFields();
+      setIsOtpModalOpen(true);
+      message.success("Registration initiated. Please verify your OTP.");
     } catch (error) {
-      console.error("Signup error:", error);
+      message.error("Signup failed. Please try again.");
+    }
+  };
+
+  const onOtpFinish = async (values: OtpFormValues): Promise<void> => {
+    if (!pendingEmail) {
+      message.error("Missing email for verification.");
+      return;
+    }
+
+    try {
+      await verifyEmail({ email: pendingEmail, code: values.code }).unwrap();
+      message.success("OTP verified. Account is now active.");
+      setIsOtpModalOpen(false);
+      setPendingEmail(null);
+      otpForm.resetFields();
+      router.push("/login");
+    } catch (error) {
+      message.error("OTP verification failed. Please try again.");
     }
   };
 
@@ -245,27 +286,24 @@ const Signup: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedRole("customer")}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border-2 transition-all ${
-                  selectedRole === "customer"
-                    ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
-                    : "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-gray-300"
-                }`}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border-2 transition-all ${selectedRole === "customer"
+                  ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
+                  : "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-gray-300"
+                  }`}
               >
                 <span
-                  className={`font-medium text-sm ${
-                    selectedRole === "customer"
-                      ? "text-amber-700 dark:text-amber-400"
-                      : "text-gray-700 dark:text-gray-300"
-                  }`}
+                  className={`font-medium text-sm ${selectedRole === "customer"
+                    ? "text-amber-700 dark:text-amber-400"
+                    : "text-gray-700 dark:text-gray-300"
+                    }`}
                 >
                   Customer
                 </span>
                 <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                    selectedRole === "customer"
-                      ? "border-amber-500 bg-amber-500"
-                      : "border-gray-300 dark:border-gray-500"
-                  }`}
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selectedRole === "customer"
+                    ? "border-amber-500 bg-amber-500"
+                    : "border-gray-300 dark:border-gray-500"
+                    }`}
                 >
                   {selectedRole === "customer" && (
                     <div className="w-2 h-2 rounded-full bg-white" />
@@ -277,27 +315,24 @@ const Signup: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedRole("professional")}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border-2 transition-all ${
-                  selectedRole === "professional"
-                    ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
-                    : "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-gray-300"
-                }`}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border-2 transition-all ${selectedRole === "professional"
+                  ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
+                  : "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-gray-300"
+                  }`}
               >
                 <span
-                  className={`font-medium text-sm ${
-                    selectedRole === "professional"
-                      ? "text-amber-700 dark:text-amber-400"
-                      : "text-gray-700 dark:text-gray-300"
-                  }`}
+                  className={`font-medium text-sm ${selectedRole === "professional"
+                    ? "text-amber-700 dark:text-amber-400"
+                    : "text-gray-700 dark:text-gray-300"
+                    }`}
                 >
                   Professional
                 </span>
                 <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                    selectedRole === "professional"
-                      ? "border-amber-500 bg-amber-500"
-                      : "border-gray-300 dark:border-gray-500"
-                  }`}
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selectedRole === "professional"
+                    ? "border-amber-500 bg-amber-500"
+                    : "border-gray-300 dark:border-gray-500"
+                    }`}
                 >
                   {selectedRole === "professional" && (
                     <div className="w-2 h-2 rounded-full bg-white" />
@@ -313,7 +348,7 @@ const Signup: React.FC = () => {
               type="primary"
               htmlType="submit"
               size="large"
-              loading={isLoading}
+              loading={isRegistering}
               className="w-full font-bold text-base transition-all hover:scale-[1.02]"
               style={{
                 height: 52,
@@ -321,7 +356,7 @@ const Signup: React.FC = () => {
                 borderColor: "#F59E0B",
               }}
             >
-              {isLoading ? "Creating Account..." : "Sign Up"}
+              {isRegistering ? "Creating Account..." : "Sign Up"}
             </Button>
           </Form.Item>
 
@@ -334,6 +369,48 @@ const Signup: React.FC = () => {
           </p>
         </Form>
       </div>
+
+      <Modal
+        title="Verify your email"
+        open={isOtpModalOpen}
+        onCancel={() => {
+          setIsOtpModalOpen(false);
+          otpForm.resetFields();
+        }}
+        onOk={() => otpForm.submit()}
+        confirmLoading={isVerifying}
+        okText="Verify"
+        centered
+      >
+        <Form
+          form={otpForm}
+          layout="vertical"
+          onFinish={onOtpFinish}
+          className="pt-2"
+        >
+          <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+            <p className="font-semibold">A six digit OTP is sent to your email.</p>
+            <p>Check your email now. Enter the OTP below to activate your account.</p>
+          </div>
+          <Form.Item
+            name="code"
+            rules={[{ required: true, message: "Please enter the OTP" }]}
+          >
+            <div className="flex justify-center">
+              <InputOTP maxLength={6} autoFocus>
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} className="h-14 w-12 text-lg font-semibold" />
+                  <InputOTPSlot index={1} className="h-14 w-12 text-lg font-semibold" />
+                  <InputOTPSlot index={2} className="h-14 w-12 text-lg font-semibold" />
+                  <InputOTPSlot index={3} className="h-14 w-12 text-lg font-semibold" />
+                  <InputOTPSlot index={4} className="h-14 w-12 text-lg font-semibold" />
+                  <InputOTPSlot index={5} className="h-14 w-12 text-lg font-semibold" />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };
