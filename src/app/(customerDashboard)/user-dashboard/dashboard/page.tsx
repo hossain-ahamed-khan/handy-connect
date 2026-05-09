@@ -1,7 +1,10 @@
 // app/(customerDashboard)/user-dashboard/page.tsx
+"use client";
 import Link from "next/link";
 import { IconType } from "react-icons";
 import { LuHammer, LuPaintbrush } from "react-icons/lu";
+import { selectUser } from "@/redux/features/auth/authSlice";
+import { useAppSelector } from "@/redux/hooks";
 import {
   MdOutlineCleaningServices,
   MdOutlineElectricalServices,
@@ -38,13 +41,16 @@ const recentRequests: RecentRequest[] = [
 ];
 
 export default function UserDashboard() {
+
+  const user = useAppSelector(selectUser);
+
   return (
     <div className="bg-[#F8FAFC] dark:bg-gray-900">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            Hello, Rahim <span className="text-2xl">👋</span>
+            Hello, {user?.full_name || user?.email} <span className="text-2xl">👋</span>
           </h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             What service do you need today?

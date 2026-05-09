@@ -26,7 +26,10 @@ import {
   MdWork,
 } from "react-icons/md";
 import Swal from "sweetalert2";
+import { toast } from "sonner";
 import main_logo from "../../../../../assets/main_logo.svg";
+import { logout } from "@/redux/features/auth/authSlice";
+import { useAppDispatch } from "@/redux/hooks";
 
 type UserRole = "user" | "professional" | "admin";
 
@@ -171,6 +174,7 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, toggleSidebar, role }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const dispatch = useAppDispatch();
 
   const navigation: NavSection[] =
     role === "professional"
@@ -207,17 +211,9 @@ export default function Sidebar({ isOpen, toggleSidebar, role }: SidebarProps) {
       confirmButtonText: "Yes, logout!",
     }).then((result) => {
       if (result.isConfirmed) {
-        Swal.fire({
-          title: "Logged out",
-          text: "You have successfully logged out.",
-          icon: "success",
-          confirmButtonColor: "#3085d6",
-        }).then(() => {
-          // dispatch(logout());
-          // localStorage.removeItem("user_token");
-          // localStorage.removeItem("selectedCategory");
-          router.push("/login");
-        });
+        dispatch(logout());
+        toast.success("Logout successful!");
+        router.push("/login");
       }
     });
   };

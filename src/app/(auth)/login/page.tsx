@@ -6,6 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { FaApple, FaArrowLeft } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
+import { useLoginMutation } from "@/redux/features/auth/authApi";
+import { useAppDispatch } from "@/redux/hooks";
+import { setUser, type TUser } from "@/redux/features/auth/authSlice";
 
 interface LoginFormValues {
   email: string;
@@ -18,16 +21,23 @@ const LoginContent: React.FC = () => {
   const searchParams = useSearchParams();
   const [form] = Form.useForm<LoginFormValues>();
   const { token } = theme.useToken();
+  const [login, { isLoading }] = useLoginMutation();
+  const dispatch = useAppDispatch();
 
   const redirectPath = searchParams.get("from") || "/";
-  const isLoading = false;
-
   const onFinish = async (values: LoginFormValues): Promise<void> => {
     try {
-      console.log("Login form values:", values);
-      // 🔥 Replace with real API call
-      alert("Login successful! (Mock)");
-      router.push(redirectPath);
+      const response = await login(values).unwrap();
+      dispatch(setUser(response));
+
+      const roleRedirects: Record<TUser["role"], string> = {
+        CUSTOMER: "/user-dashboard",
+        PROVIDER: "/professional-dashboard",
+        ADMIN: "/admin-dashboard",
+      };
+
+      const roleRedirect = roleRedirects[response.user.role];
+      router.push(roleRedirect || redirectPath);
     } catch (error) {
       console.error("Login error:", error);
       const errorMessage = (error as Error)?.message || "Something went wrong!";
