@@ -1,202 +1,200 @@
 "use client";
 
-import { Button, Form, Input, theme } from "antd";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FaArrowLeft } from "react-icons/fa";
+import { useState } from "react";
+import { X, Eye, EyeOff } from "lucide-react";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 
-// 🔥 Uncomment when API is integrated
-// import { ErrorSwal, SuccessSwal } from "@/components/utils/allSwalFire";
-// import { useForgotPasswordMutation } from "@/lib/redux/features/authApi";
+type Step = "forgot" | "verify" | "reset";
 
-// ==================== TYPES ====================
-interface ForgotPasswordFormValues {
-  email: string;
-}
+export default function ForgotPasswordFlow() {
+  const [step, setStep] = useState<Step>("forgot");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-// 🔥 Uncomment when API is ready
-// interface ForgotPasswordResponse {
-//   success: boolean;
-//   data: {
-//     token: string;
-//   };
-//   message: string;
-// }
-
-// interface ApiError {
-//   data?: {
-//     message: string;
-//   };
-//   message?: string;
-// }
-
-// ==================== COMPONENT ====================
-const ForgotPassword: React.FC = () => {
-  const router = useRouter();
-  const [form] = Form.useForm<ForgotPasswordFormValues>();
-  const { token } = theme.useToken();
-
-  // ==================== API INTEGRATION ====================
-  // 🔥 Uncomment when backend API is ready
-  // const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
-
-  // 🔥 Mock loading state - Remove when API is integrated
-  const isLoading = false;
-
-  // ==================== FORM SUBMIT HANDLER ====================
-  const onFinish = async (values: ForgotPasswordFormValues): Promise<void> => {
-    try {
-      console.log("Forgot password form values:", values);
-
-      // ==================== API CALL ====================
-      // 🔥 Uncomment when backend is ready
-      /*
-      const response: ForgotPasswordResponse = await forgotPassword({
-        email: values.email,
-      }).unwrap();
-
-      // Store token if provided
-      if (response?.success && response?.data?.token) {
-        localStorage.setItem("user_token", response.data.token);
-      }
-
-      // Success notification
-      SuccessSwal({
-        title: "OTP Sent!",
-        text: `${response.message || "Verification code sent to"} ${values.email}`,
-      });
-
-      // Redirect to verify email page with email in query
-      router.push(`/verify-email?email=${encodeURIComponent(values.email)}`);
-      */
-
-      // ==================== MOCK SUCCESS ====================
-      // 🔥 Remove this block when API is integrated
-      console.log("Mock forgot password - Email:", values.email);
-      alert(
-        `OTP sent successfully! (Mock - Remove when API ready)\n\nA verification code has been sent to:\n${values.email}\n\nRedirecting to verification page...`,
-      );
-
-      // Mock redirect
-      setTimeout(() => {
-        router.push(`/verify-code?email=${encodeURIComponent(values.email)}`);
-      }, 1000);
-    } catch (error) {
-      // ==================== ERROR HANDLING ====================
-      console.error("Forgot password error:", error);
-
-      // 🔥 Uncomment when backend is ready
-      /*
-      const apiError = error as ApiError;
-      ErrorSwal({
-        title: "Failed to send OTP",
-        text: apiError?.data?.message || apiError?.message || "Something went wrong. Please try again.",
-      });
-      */
-
-      // 🔥 Mock error - Remove when API integrated
-      const errorMessage = (error as Error)?.message || "Something went wrong!";
-      alert(`Failed to send OTP: ${errorMessage} (Mock error)`);
-    }
+  const handleClose = () => {
+    setStep("forgot");
+    setEmail("");
+    setOtp("");
+    setNewPassword("");
+    setConfirmPassword("");
   };
 
-  // ==================== NAVIGATION HANDLERS ====================
-  const handleBack = (): void => {
-    router.back();
-  };
-
-  const inputStyle = {
-    backgroundColor: token.colorBgContainer,
-    color: token.colorText,
-    height: 48,
-  };
-
-  // ==================== RENDER ====================
   return (
-    <div className="min-h-screen w-full flex flex-col justify-center items-center px-4 py-12 bg-gray-100 dark:bg-gray-900 transition-colors">
-      <div className="shadow-lg dark:shadow-gray-800/50 rounded-2xl w-full max-w-md p-8 relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors">
-        {/* ==================== BACK BUTTON ==================== */}
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="relative bg-white rounded-2xl shadow-lg w-full max-w-md p-8">
+        {/* Close button */}
         <button
-          onClick={handleBack}
-          className="absolute top-4 left-4 text-gray-500 dark:text-gray-400 hover:opacity-70 focus:outline-none transition-opacity"
-          aria-label="Go Back"
+          onClick={handleClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
         >
-          <FaArrowLeft size={24} />
+          <X size={20} />
         </button>
 
-        {/* ==================== HEADER ==================== */}
-        <div className="flex flex-col items-center mb-6">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white text-center">
-            Forgot Password
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">
-            Enter your account email to receive OTP
-          </p>
-        </div>
+        {/* ── Step 1: Forgot Password ── */}
+        {step === "forgot" && (
+          <div className="flex flex-col gap-6">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Forgot Password
+              </h1>
+              <p className="text-gray-500 text-sm">
+                Please enter your email to continue
+              </p>
+            </div>
 
-        {/* ==================== FORGOT PASSWORD FORM ==================== */}
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={onFinish}
-          className="space-y-0"
-        >
-          {/* ==================== EMAIL FIELD ==================== */}
-          <Form.Item<ForgotPasswordFormValues>
-            label={
-              <span className="font-semibold text-gray-900 dark:text-white transition-colors">
-                Email
-              </span>
-            }
-            name="email"
-            rules={[
-              {
-                type: "email",
-                message: "Please enter a valid email address",
-              },
-              {
-                required: true,
-                message: "Email is required",
-              },
-            ]}
-          >
-            <Input
-              size="large"
-              placeholder="Esteban_schiller@gmail.com"
-              aria-label="Email Address"
-              className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 transition-colors"
-              style={inputStyle}
-            />
-          </Form.Item>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-gray-700">
+                Email Address
+              </label>
+              <input
+                type="email"
+                placeholder="Esteban_schiller@gmail.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl bg-gray-100 border-0 px-4 py-3 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </div>
 
-          {/* ==================== SUBMIT BUTTON ==================== */}
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              size="large"
-              loading={isLoading}
-              className="w-full transition-all hover:scale-[1.02]"
-              style={{ height: 60 }}
+            <button
+              onClick={() => email && setStep("verify")}
+              className="w-full rounded-xl bg-amber-400 hover:bg-amber-500 transition-colors text-white font-semibold py-3.5 text-sm"
             >
-              {isLoading ? "Sending OTP..." : "Send OTP"}
-            </Button>
-          </Form.Item>
+              Send
+            </button>
+          </div>
+        )}
 
-          {/* ==================== LOGIN LINK ==================== */}
-          <p className="text-center text-gray-700 dark:text-gray-300 transition-colors">
-            Remembered your password?{" "}
-            <Link
-              href="/login"
-              className="text-blue-600 dark:text-blue-400 font-bold underline hover:opacity-80 transition-opacity"
+        {/* ── Step 2: Check Your Email / OTP ── */}
+        {step === "verify" && (
+          <div className="flex flex-col gap-6">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Check Your Email
+              </h1>
+              <p className="text-gray-500 text-sm leading-relaxed">
+                We sent a reset link to{" "}
+                <span className="text-gray-700 font-medium">
+                  {email.length > 20
+                    ? email.slice(0, 17) + "..."
+                    : email}
+                </span>
+                <br />
+                enter 5-digit code that mentioned in the email
+              </p>
+            </div>
+
+            {/* shadcn InputOTP */}
+            <div className="flex justify-center">
+              <InputOTP
+                maxLength={5}
+                value={otp}
+                onChange={(val) => setOtp(val)}
+              >
+                <InputOTPGroup className="gap-3">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <InputOTPSlot
+                      key={i}
+                      index={i}
+                      className="w-12 h-12 rounded-xl border border-gray-200 text-lg font-semibold text-gray-800 focus:border-amber-400 focus:ring-amber-400"
+                    />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+
+            <button
+              onClick={() => otp.length === 5 && setStep("reset")}
+              className="w-full rounded-xl bg-amber-400 hover:bg-amber-500 transition-colors text-white font-semibold py-3.5 text-sm"
             >
-              Log In
-            </Link>
-          </p>
-        </Form>
+              Verify
+            </button>
+          </div>
+        )}
+
+        {/* ── Step 3: Set New Password ── */}
+        {step === "reset" && (
+          <div className="flex flex-col gap-6">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Set a new password
+              </h1>
+              <p className="text-gray-500 text-sm leading-relaxed">
+                Create a new password. Ensure it differs from
+                <br />
+                previous ones for security
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {/* New Password */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-700">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNew ? "text" : "password"}
+                    placeholder="Enter Password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full rounded-xl bg-gray-100 border-0 px-4 py-3 pr-11 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew((p) => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showNew ? <Eye size={18} /> : <EyeOff size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Password */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-700">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirm ? "text" : "password"}
+                    placeholder="Enter Password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full rounded-xl bg-gray-100 border-0 px-4 py-3 pr-11 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm((p) => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirm ? <Eye size={18} /> : <EyeOff size={18} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                if (newPassword && newPassword === confirmPassword) {
+                  alert("Password updated successfully!");
+                  handleClose();
+                }
+              }}
+              className="w-full rounded-xl bg-amber-400 hover:bg-amber-500 transition-colors text-white font-semibold py-3.5 text-sm"
+            >
+              Update Password
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
-};
-
-export default ForgotPassword;
+}
