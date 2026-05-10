@@ -1,11 +1,12 @@
 "use client";
 
-import { Button, Checkbox, Form, Input, theme } from "antd";
+import { Button, Checkbox, Form, Input, Modal, theme } from "antd";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { FaApple, FaArrowLeft } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
+import GoogleLoginButton from "@/components/shared/GoogleLoginButton";
 import { useLoginMutation } from "@/redux/features/auth/authApi";
 import { useAppDispatch } from "@/redux/hooks";
 import { setUser, type TUser } from "@/redux/features/auth/authSlice";
@@ -24,6 +25,7 @@ const LoginContent: React.FC = () => {
   const { token } = theme.useToken();
   const [login, { isLoading }] = useLoginMutation();
   const dispatch = useAppDispatch();
+  const [isGoogleRoleOpen, setGoogleRoleOpen] = useState(false);
 
   const redirectPath = searchParams.get("from") || "/";
   const onFinish = async (values: LoginFormValues): Promise<void> => {
@@ -49,11 +51,6 @@ const LoginContent: React.FC = () => {
 
   const handleBack = (): void => {
     router.back();
-  };
-
-  const handleGoogleLogin = (): void => {
-    console.log("Google login clicked");
-    // 🔥 Integrate Google OAuth here
   };
 
   const handleAppleLogin = (): void => {
@@ -92,7 +89,7 @@ const LoginContent: React.FC = () => {
         {/* Social Login Buttons */}
         <div className="flex flex-col gap-3 mb-6">
           <button
-            onClick={handleGoogleLogin}
+            onClick={() => setGoogleRoleOpen(true)}
             className="w-full flex items-center justify-center gap-3 border border-gray-200 dark:border-gray-600 rounded-xl py-3 px-4 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all text-gray-800 dark:text-white font-medium text-sm shadow-sm"
           >
             <FcGoogle size={20} />
@@ -114,6 +111,33 @@ const LoginContent: React.FC = () => {
           <span className="text-xs text-gray-400 font-medium">or</span>
           <div className="flex-1 h-px bg-gray-200 dark:bg-gray-600" />
         </div>
+
+        <Modal
+          open={isGoogleRoleOpen}
+          onCancel={() => setGoogleRoleOpen(false)}
+          footer={null}
+          centered
+          title="Choose account type"
+        >
+          <div className="flex flex-col gap-3">
+            <GoogleLoginButton
+              role="CUSTOMER"
+              onClick={() => setGoogleRoleOpen(false)}
+              className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 px-4 bg-white hover:bg-gray-50 transition-all text-gray-800 font-medium text-sm shadow-sm"
+            >
+              <FcGoogle size={20} />
+              Login as customer
+            </GoogleLoginButton>
+            <GoogleLoginButton
+              role="PROVIDER"
+              onClick={() => setGoogleRoleOpen(false)}
+              className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 px-4 bg-white hover:bg-gray-50 transition-all text-gray-800 font-medium text-sm shadow-sm"
+            >
+              <FcGoogle size={20} />
+              Login as provider
+            </GoogleLoginButton>
+          </div>
+        </Modal>
 
         {/* Login Form */}
         <Form

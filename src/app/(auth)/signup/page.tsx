@@ -11,6 +11,7 @@ import {
   useVerifyEmailMutation,
 } from "@/redux/features/register/registerApi";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import GoogleButton from "@/components/shared/GoogleLoginButton";
 
 interface SignupFormValues {
   name: string;
@@ -21,7 +22,7 @@ interface SignupFormValues {
   agree: boolean;
 }
 
-type Role = "customer" | "professional";
+type Role = "CUSTOMER" | "PROVIDER";
 
 interface OtpFormValues {
   code: string;
@@ -32,7 +33,8 @@ const Signup: React.FC = () => {
   const [form] = Form.useForm<SignupFormValues>();
   const [otpForm] = Form.useForm<OtpFormValues>();
   const { token } = theme.useToken();
-  const [selectedRole, setSelectedRole] = useState<Role>("customer");
+  const [selectedRole, setSelectedRole] = useState<Role>("CUSTOMER");
+  const [isGoogleRoleOpen, setGoogleRoleOpen] = useState(false);
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
@@ -46,7 +48,7 @@ const Signup: React.FC = () => {
         username: values.name,
         password: values.password,
         re_password: values.confirmPassword,
-        role: selectedRole === "professional" ? "PROVIDER" : "CUSTOMER",
+        role: selectedRole === "PROVIDER" ? "PROVIDER" : "CUSTOMER",
         phone_number: values.phone,
       };
 
@@ -80,11 +82,6 @@ const Signup: React.FC = () => {
 
   const handleBack = (): void => {
     router.back();
-  };
-
-  const handleGoogleSignup = (): void => {
-    console.log("Google signup clicked");
-    // Integrate Google OAuth here
   };
 
   const handleAppleSignup = (): void => {
@@ -123,7 +120,7 @@ const Signup: React.FC = () => {
         {/* Social Signup Buttons */}
         <div className="flex flex-col gap-3 mb-6">
           <button
-            onClick={handleGoogleSignup}
+            onClick={() => setGoogleRoleOpen(true)}
             className="w-full flex items-center justify-center gap-3 border border-gray-200 dark:border-gray-600 rounded-xl py-3 px-4 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all text-gray-800 dark:text-white font-medium text-sm shadow-sm"
           >
             <FcGoogle size={20} />
@@ -145,6 +142,33 @@ const Signup: React.FC = () => {
           <span className="text-xs text-gray-400 font-medium">or</span>
           <div className="flex-1 h-px bg-gray-200 dark:bg-gray-600" />
         </div>
+
+        <Modal
+          open={isGoogleRoleOpen}
+          onCancel={() => setGoogleRoleOpen(false)}
+          footer={null}
+          centered
+          title="Choose account type"
+        >
+          <div className="flex flex-col gap-3">
+            <GoogleButton
+              role="CUSTOMER"
+              onClick={() => setGoogleRoleOpen(false)}
+              className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 px-4 bg-white hover:bg-gray-50 transition-all text-gray-800 font-medium text-sm shadow-sm"
+            >
+              <FcGoogle size={20} />
+              Signup as customer
+            </GoogleButton>
+            <GoogleButton
+              role="PROVIDER"
+              onClick={() => setGoogleRoleOpen(false)}
+              className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 px-4 bg-white hover:bg-gray-50 transition-all text-gray-800 font-medium text-sm shadow-sm"
+            >
+              <FcGoogle size={20} />
+              Signup as provider
+            </GoogleButton>
+          </div>
+        </Modal>
 
         {/* Signup Form */}
         <Form
@@ -285,14 +309,14 @@ const Signup: React.FC = () => {
               {/* Customer Option */}
               <button
                 type="button"
-                onClick={() => setSelectedRole("customer")}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border-2 transition-all ${selectedRole === "customer"
+                onClick={() => setSelectedRole("CUSTOMER")}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border-2 transition-all ${selectedRole === "CUSTOMER"
                   ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
                   : "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-gray-300"
                   }`}
               >
                 <span
-                  className={`font-medium text-sm ${selectedRole === "customer"
+                  className={`font-medium text-sm ${selectedRole === "CUSTOMER"
                     ? "text-amber-700 dark:text-amber-400"
                     : "text-gray-700 dark:text-gray-300"
                     }`}
@@ -300,12 +324,12 @@ const Signup: React.FC = () => {
                   Customer
                 </span>
                 <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selectedRole === "customer"
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selectedRole === "CUSTOMER"
                     ? "border-amber-500 bg-amber-500"
                     : "border-gray-300 dark:border-gray-500"
                     }`}
                 >
-                  {selectedRole === "customer" && (
+                  {selectedRole === "CUSTOMER" && (
                     <div className="w-2 h-2 rounded-full bg-white" />
                   )}
                 </div>
@@ -314,14 +338,14 @@ const Signup: React.FC = () => {
               {/* Professional Option */}
               <button
                 type="button"
-                onClick={() => setSelectedRole("professional")}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border-2 transition-all ${selectedRole === "professional"
+                onClick={() => setSelectedRole("PROVIDER")}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border-2 transition-all ${selectedRole === "PROVIDER"
                   ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
                   : "border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-gray-300"
                   }`}
               >
                 <span
-                  className={`font-medium text-sm ${selectedRole === "professional"
+                  className={`font-medium text-sm ${selectedRole === "PROVIDER"
                     ? "text-amber-700 dark:text-amber-400"
                     : "text-gray-700 dark:text-gray-300"
                     }`}
@@ -329,12 +353,12 @@ const Signup: React.FC = () => {
                   Professional
                 </span>
                 <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selectedRole === "professional"
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selectedRole === "PROVIDER"
                     ? "border-amber-500 bg-amber-500"
                     : "border-gray-300 dark:border-gray-500"
                     }`}
                 >
-                  {selectedRole === "professional" && (
+                  {selectedRole === "PROVIDER" && (
                     <div className="w-2 h-2 rounded-full bg-white" />
                   )}
                 </div>
