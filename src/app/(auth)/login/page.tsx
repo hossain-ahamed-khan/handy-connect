@@ -9,6 +9,7 @@ import { FcGoogle } from "react-icons/fc";
 import { useLoginMutation } from "@/redux/features/auth/authApi";
 import { useAppDispatch } from "@/redux/hooks";
 import { setUser, type TUser } from "@/redux/features/auth/authSlice";
+import { toast } from "sonner";
 
 interface LoginFormValues {
   email: string;
@@ -38,10 +39,11 @@ const LoginContent: React.FC = () => {
 
       const roleRedirect = roleRedirects[response.user.role];
       router.push(roleRedirect || redirectPath);
+      toast.success("Login successful.");
     } catch (error) {
       console.error("Login error:", error);
       const errorMessage = (error as Error)?.message || "Something went wrong!";
-      alert(`Login failed: ${errorMessage}`);
+      toast.error(`Login failed: ${errorMessage}`);
     }
   };
 

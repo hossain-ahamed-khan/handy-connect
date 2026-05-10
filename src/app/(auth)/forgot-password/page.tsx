@@ -1,16 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { X, Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import {
+  useForgotPasswordMutation,
+  useVerifyResetOtpMutation,
+  useResetPasswordMutation,
+} from "@/redux/features/forgotPassword/forgotPasswordApi";
 
 type Step = "forgot" | "verify" | "reset";
 
+const RESET_EMAIL_KEY = "reset_email";
+const RESET_OTP_KEY = "reset_otp";
+
 export default function ForgotPasswordFlow() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("forgot");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -18,13 +29,69 @@ export default function ForgotPasswordFlow() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState("");
+
+  const [forgotPassword, { isLoading: isSendingEmail }] =
+    useForgotPasswordMutation();
+  const [verifyResetOtp, { isLoading: isVerifyingOtp }] =
+    useVerifyResetOtpMutation();
+  const [resetPassword, { isLoading: isResettingPassword }] =
+    useResetPasswordMutation();
 
   const handleClose = () => {
-    setStep("forgot");
-    setEmail("");
-    setOtp("");
-    setNewPassword("");
-    setConfirmPassword("");
+    router.push("/login");
+  };
+
+  const handleSendEmail = async () => {
+    if (!email) return;
+    setError("");
+    try {
+      await forgotPassword(email).unwrap();
+      localStorage.setItem(RESET_EMAIL_KEY, email);
+      setStep("verify");
+    } catch (err) {
+      setError("Unable to send reset OTP. Please try again.");
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!email || otp.length !== 6) return;
+    setError("");
+    try {
+      await verifyResetOtp({ email, code: otp }).unwrap();
+      localStorage.setItem(RESET_OTP_KEY, otp);
+      setStep("reset");
+    } catch (err) {
+      setError("Invalid OTP. Please try again.");
+    }
+  };
+
+  const handleResetPassword = async () => {
+    const storedEmail = localStorage.getItem(RESET_EMAIL_KEY) || email;
+    const storedOtp = localStorage.getItem(RESET_OTP_KEY) || otp;
+
+    if (!storedEmail || storedOtp.length !== 6) return;
+    if (!newPassword || newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setError("");
+    try {
+      await resetPassword({
+        email: storedEmail,
+        code: storedOtp,
+        new_password: newPassword,
+        re_new_password: confirmPassword,
+      }).unwrap();
+      localStorage.removeItem(RESET_EMAIL_KEY);
+      localStorage.removeItem(RESET_OTP_KEY);
+      toast.success("Password reset successfully.");
+      handleClose();
+      router.push("/login");
+    } catch (err) {
+      setError("Password reset failed. Please try again.");
+    }
   };
 
   return (
@@ -63,11 +130,16 @@ export default function ForgotPasswordFlow() {
               />
             </div>
 
+            {error && (
+              <p className="text-sm text-red-600 text-center">{error}</p>
+            )}
+
             <button
-              onClick={() => email && setStep("verify")}
-              className="w-full rounded-xl bg-amber-400 hover:bg-amber-500 transition-colors text-white font-semibold py-3.5 text-sm"
+              onClick={handleSendEmail}
+              disabled={!email || isSendingEmail}
+              className="w-full rounded-xl bg-amber-400 hover:bg-amber-500 transition-colors text-white font-semibold py-3.5 text-sm disabled:opacity-60 cursor-pointer"
             >
-              Send
+              {isSendingEmail ? "Sending..." : "Send"}
             </button>
           </div>
         )}
@@ -87,19 +159,19 @@ export default function ForgotPasswordFlow() {
                     : email}
                 </span>
                 <br />
-                enter 5-digit code that mentioned in the email
+                enter 6-digit code that mentioned in the email
               </p>
             </div>
 
             {/* shadcn InputOTP */}
             <div className="flex justify-center">
               <InputOTP
-                maxLength={5}
+                maxLength={6}
                 value={otp}
                 onChange={(val) => setOtp(val)}
               >
                 <InputOTPGroup className="gap-3">
-                  {[0, 1, 2, 3, 4].map((i) => (
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
                     <InputOTPSlot
                       key={i}
                       index={i}
@@ -110,11 +182,16 @@ export default function ForgotPasswordFlow() {
               </InputOTP>
             </div>
 
+            {error && (
+              <p className="text-sm text-red-600 text-center">{error}</p>
+            )}
+
             <button
-              onClick={() => otp.length === 5 && setStep("reset")}
-              className="w-full rounded-xl bg-amber-400 hover:bg-amber-500 transition-colors text-white font-semibold py-3.5 text-sm"
+              onClick={handleVerifyOtp}
+              disabled={otp.length !== 6 || isVerifyingOtp}
+              className="w-full rounded-xl bg-amber-400 hover:bg-amber-500 transition-colors text-white font-semibold py-3.5 text-sm disabled:opacity-60 cursor-pointer"
             >
-              Verify
+              {isVerifyingOtp ? "Verifying..." : "Verify"}
             </button>
           </div>
         )}
@@ -181,16 +258,21 @@ export default function ForgotPasswordFlow() {
               </div>
             </div>
 
+            {error && (
+              <p className="text-sm text-red-600 text-center">{error}</p>
+            )}
+
             <button
-              onClick={() => {
-                if (newPassword && newPassword === confirmPassword) {
-                  alert("Password updated successfully!");
-                  handleClose();
-                }
-              }}
-              className="w-full rounded-xl bg-amber-400 hover:bg-amber-500 transition-colors text-white font-semibold py-3.5 text-sm"
+              onClick={handleResetPassword}
+              disabled={
+                !newPassword ||
+                !confirmPassword ||
+                newPassword !== confirmPassword ||
+                isResettingPassword
+              }
+              className="w-full rounded-xl bg-amber-400 hover:bg-amber-500 transition-colors text-white font-semibold py-3.5 text-sm disabled:opacity-60 cursor-pointer"
             >
-              Update Password
+              {isResettingPassword ? "Updating..." : "Update Password"}
             </button>
           </div>
         )}
