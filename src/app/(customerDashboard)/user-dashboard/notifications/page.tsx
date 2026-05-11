@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import {
   MdCheckCircle,
   MdOutlineHandyman,
@@ -10,8 +10,18 @@ import {
   MdOutlineWaterDrop,
   MdStar,
 } from "react-icons/md";
+import { useGetNotificationsQuery } from "@/redux/features/customer/notifications/notificationsApi";
 
 type NotificationType = "request" | "review" | "offer" | "system" | "update";
+
+interface ApiNotification {
+  id: number;
+  title: string;
+  message: string;
+  is_read: boolean;
+  service_request: number | null;
+  created_at_human: string;
+}
 
 interface Notification {
   id: number;
@@ -22,84 +32,9 @@ interface Notification {
   read: boolean;
 }
 
-const notifications: Notification[] = [
-  {
-    id: 1,
-    type: "request",
-    title: "Request Accepted",
-    message:
-      "John Mayer accepted your plumbing request. He will arrive between 2PM - 4PM.",
-    time: "2 min ago",
-    read: false,
-  },
-  {
-    id: 2,
-    type: "review",
-    title: "New Review Received",
-    message:
-      'David Cohen left you a 5-star review: "Excellent work, very professional!"',
-    time: "1 hour ago",
-    read: false,
-  },
-  {
-    id: 3,
-    type: "offer",
-    title: "Special Offer",
-    message:
-      "Get 20% off your next electrical service booking. Valid until Dec 31.",
-    time: "3 hours ago",
-    read: false,
-  },
-  {
-    id: 4,
-    type: "update",
-    title: "Job Completed",
-    message:
-      "Your kitchen sink repair has been marked as completed. Please leave a review.",
-    time: "Yesterday",
-    read: true,
-  },
-  {
-    id: 5,
-    type: "request",
-    title: "New Quote Received",
-    message:
-      "You received a new quote from Sarah's Cleaning Services for your cleaning request.",
-    time: "Yesterday",
-    read: true,
-  },
-  {
-    id: 6,
-    type: "system",
-    title: "Account Verified",
-    message:
-      "Your account has been successfully verified. You can now access all features.",
-    time: "2 days ago",
-    read: true,
-  },
-  {
-    id: 7,
-    type: "update",
-    title: "Professional En Route",
-    message:
-      "Mike (Electrician) is on his way. Estimated arrival in 15 minutes.",
-    time: "2 days ago",
-    read: true,
-  },
-  {
-    id: 8,
-    type: "offer",
-    title: "Refer & Earn",
-    message:
-      "Invite a friend and earn $10 credit when they complete their first booking.",
-    time: "3 days ago",
-    read: true,
-  },
-];
-
 const iconMap: Record<
   NotificationType,
-  { icon: React.ReactNode; bg: string; color: string }
+  { icon: ReactNode; bg: string; color: string }
 > = {
   request: {
     icon: <MdOutlineWaterDrop size={20} />,
@@ -128,8 +63,71 @@ const iconMap: Record<
   },
 };
 
+/** Derive a NotificationType from the notification title/context */
+function inferType(notification: ApiNotification): NotificationType {
+  const title = notification.title.toLowerCase();
+
+  if (
+    title.includes("request") ||
+    title.includes("quote") ||
+    title.includes("accepted") ||
+    title.includes("started") ||
+    title.includes("route") ||
+    title.includes("way")
+  ) {
+    return "request";
+  }
+  if (title.includes("review") || title.includes("star") || title.includes("rating")) {
+    return "review";
+  }
+  if (
+    title.includes("offer") ||
+    title.includes("discount") ||
+    title.includes("refer") ||
+    title.includes("earn") ||
+    title.includes("promo")
+  ) {
+    return "offer";
+  }
+  if (
+    title.includes("completed") ||
+    title.includes("done") ||
+    title.includes("diagnosis") ||
+    title.includes("ready")
+  ) {
+    return "update";
+  }
+  // Default: system (welcome, account, verification, etc.)
+  return "system";
+}
+
+/** Map API response shape → internal Notification shape */
+function mapApiNotification(n: ApiNotification): Notification {
+  return {
+    id: n.id,
+    type: inferType(n),
+    title: n.title,
+    message: n.message,
+    time: n.created_at_human,
+    read: n.is_read,
+  };
+}
+
 export default function Notifications() {
-  const [items, setItems] = useState<Notification[]>(notifications);
+  const { data, isLoading, isError } = useGetNotificationsQuery<{
+    data: ApiNotification[] | undefined;
+    isLoading: boolean;
+    isError: boolean;
+  }>(undefined);
+
+  const [items, setItems] = useState<Notification[]>([]);
+
+  // Sync API data into local state so mark-as-read works optimistically
+  useEffect(() => {
+    if (data) {
+      setItems(data.map(mapApiNotification));
+    }
+  }, [data]);
 
   const unreadCount = items.filter((n) => !n.read).length;
 
@@ -139,10 +137,53 @@ export default function Notifications() {
 
   const markRead = (id: number) => {
     setItems((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
   };
 
+  // ── Loading state ──────────────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            Notifications
+          </h2>
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="flex items-start gap-4 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 animate-pulse"
+            >
+              <div className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-gray-700 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-1/3 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-3 w-2/3 bg-gray-100 dark:bg-gray-600 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Error state ────────────────────────────────────────────────────────────
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          Notifications
+        </h2>
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <MdOutlineNotifications size={48} className="mb-3 opacity-40" />
+          <p className="text-sm font-medium">Failed to load notifications</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main render ────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -182,11 +223,10 @@ export default function Notifications() {
               <div
                 key={notification.id}
                 onClick={() => markRead(notification.id)}
-                className={`relative flex items-start gap-4 p-4 rounded-2xl border transition-all cursor-pointer hover:shadow-md ${
-                  notification.read
-                    ? "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                    : "bg-blue-50/40 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800"
-                }`}
+                className={`relative flex items-start gap-4 p-4 rounded-2xl border transition-all cursor-pointer hover:shadow-md ${notification.read
+                  ? "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                  : "bg-blue-50/40 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800"
+                  }`}
               >
                 {/* Icon */}
                 <div
