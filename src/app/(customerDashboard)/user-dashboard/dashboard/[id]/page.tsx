@@ -4,25 +4,90 @@ import {
   Button,
   Form,
   Input,
+  message,
   Modal,
   Progress,
-  Select,
   Switch,
   Upload,
 } from "antd";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import type { UploadProps } from "antd";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   LuArrowRight,
   LuCalculator,
+  LuCheck,
   LuFileSearch,
   LuScan,
   LuSparkles,
   LuUpload,
   LuUserCheck,
 } from "react-icons/lu";
+import { skipToken } from "@reduxjs/toolkit/query";
+import {
+  useAiDiagnosisQuery,
+  useFinalRequestSubmissionMutation,
+  useInitiateServiceRequestMutation,
+  useProcessAiDiagnosisMutation,
+  useUploadMediaMutation,
+} from "@/redux/features/customer/serviceRequest/serviceRequestApi";
+import AIDiagnosis, {
+  AiDiagnosisResponse,
+} from "@/components/user/AiDiagonosisResult";
 
 const { TextArea } = Input;
+
+type ServiceDetails = {
+  id: number;
+  name_en: string;
+  name_de: string;
+  icon: string;
+  color: string;
+  min_price: string;
+  max_price: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type ServiceRequestResponse = {
+  id: number;
+  customer: number;
+  customer_name: string;
+  customer_photo: string | null;
+  service: number;
+  service_name: string;
+  service_details: ServiceDetails;
+  service_icon: string;
+  description: string | null;
+  ai_summary: string | null;
+  ai_cost: Record<string, unknown>;
+  address: string | null;
+  zip_code: string | null;
+  phone_number: string;
+  no_call_just_chat: boolean;
+  mark_as_priority: boolean;
+  status: string;
+  status_display: string;
+  total_price: string;
+  lat: number | null;
+  lng: number | null;
+  media: Array<unknown>;
+  is_sold: boolean;
+  application_count: number;
+  is_applied: boolean;
+  assigned_provider: number | null;
+  assigned_provider_details: unknown;
+  created_at: string;
+  updated_at: string;
+  formatted_date: string;
+  timeline: {
+    request_received: string;
+    on_the_way: string | null;
+    in_progress: string | null;
+    completed: string | null;
+  };
+};
 
 export const dynamicParams = true;
 
@@ -31,24 +96,97 @@ export default function ServiceDetails() {
   const id = params?.id ?? "";
 
   const [form] = Form.useForm();
-  const router = useRouter();
+  const [messageApi, contextHolder] = message.useMessage();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingStep, setLoadingStep] = useState(1);
+  const [serviceRequest, setServiceRequest] =
+    useState<ServiceRequestResponse | null>(null);
+  const [aiResult, setAiResult] = useState<AiDiagnosisResponse | null>(null);
+  const [aiRequestId, setAiRequestId] = useState<number | null>(null);
+  const [zipCode, setZipCode] = useState("");
+  const [markAsPriority, setMarkAsPriority] = useState(false);
 
-  const handleSendRequest = () => {
+  const [initiateServiceRequest] = useInitiateServiceRequestMutation();
+  const [uploadMedia] = useUploadMediaMutation();
+  const [finalRequestSubmission, { isLoading: isSubmitting }] =
+    useFinalRequestSubmissionMutation();
+  const [processAiDiagnosis, { isLoading: isProcessingAi }] =
+    useProcessAiDiagnosisMutation();
+  const { data: aiResultData, isLoading: isDiagnosing } = useAiDiagnosisQuery(
+    aiRequestId ? { requestId: aiRequestId } : skipToken
+  );
+
+  const serviceDetails = serviceRequest?.service_details ?? null;
+
+  useEffect(() => {
+    const serviceId = Number(id) || 1;
+    initiateServiceRequest({ service: serviceId })
+      .unwrap()
+      .then((response) => {
+        setServiceRequest(response as ServiceRequestResponse);
+      })
+      .catch((error) => {
+        console.error("Failed to initiate service request", error);
+      });
+  }, [id, initiateServiceRequest]);
+
+  useEffect(() => {
+    form.setFieldsValue({
+      category: serviceDetails?.name_en || "N/A",
+    });
+  }, [form, serviceDetails?.name_en]);
+
+  useEffect(() => {
+    if (aiResultData) {
+      setAiResult(aiResultData as AiDiagnosisResponse);
+    }
+  }, [aiResultData]);
+
+  const handleSendRequest = async () => {
+    if (!serviceRequest?.id) {
+      messageApi.error("Please wait for the request to initialize.");
+      return;
+    }
+
+    setAiResult(null);
     setIsModalOpen(true);
     setLoadingStep(1);
 
-    const intervals = [500, 1000, 1500, 2000];
-    intervals.forEach((ms, index) => {
-      setTimeout(() => setLoadingStep(index + 1), ms);
-    });
+    const stepIntervalMs = 2500;
+    const timers = [1, 2, 3, 4].map((step) =>
+      setTimeout(() => setLoadingStep(step), step * stepIntervalMs)
+    );
 
-    setTimeout(() => {
+    try {
+      const payload = {
+        description: form.getFieldValue("description")?.trim() || "pipe broken",
+        address: "Dhaka",
+        zip_code: zipCode ? Number(zipCode) : 1212,
+        phone_number: null,
+        no_call_just_chat: true,
+        mark_as_priority: markAsPriority,
+        status: "PENDING",
+      };
+
+      const finalResponse = await finalRequestSubmission({
+        requestId: serviceRequest.id,
+        formData: payload,
+      }).unwrap();
+
+      await processAiDiagnosis({ requestId: finalResponse.id }).unwrap();
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10000);
+      });
+
+      setAiRequestId(finalResponse.id);
+    } catch (error) {
+      messageApi.error("Failed to submit request or run AI diagnosis.");
+    } finally {
+      timers.forEach((timer) => clearTimeout(timer));
       setIsModalOpen(false);
-      router.push(`/user-dashboard/category`);
-    }, 2800);
+    }
   };
 
   const steps = [
@@ -58,17 +196,45 @@ export default function ServiceDetails() {
     { id: 4, label: "Matching professionals", icon: <LuUserCheck /> },
   ];
 
-  const categoryOptions = [
-    { value: "plumbing", label: "Plumbing" },
-    { value: "carpentry", label: "Carpentry" },
-    { value: "painting", label: "Painting" },
-    { value: "electrical", label: "Electrical" },
-    { value: "cleaning", label: "Cleaning" },
-    { value: "general", label: "General" },
-  ];
+  const handleMediaUpload: UploadProps["customRequest"] = async (options) => {
+    const { file, onError, onSuccess } = options;
+
+    if (!serviceRequest?.id) {
+      messageApi.error("Please wait for the request to initialize.");
+      onError?.(new Error("Service request is not ready."));
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("request", String(serviceRequest.id));
+      formData.append("file", file as File);
+
+      await uploadMedia(formData).unwrap();
+      messageApi.success("Media uploaded successfully.");
+      onSuccess?.("ok");
+    } catch (error) {
+      messageApi.error("Failed to upload media.");
+      onError?.(error as Error);
+    }
+  };
+
+  if (aiResult || isDiagnosing) {
+    return (
+      <>
+        {contextHolder}
+        <AIDiagnosis
+          result={aiResult}
+          isLoading={isDiagnosing}
+          onBack={() => setAiResult(null)}
+        />
+      </>
+    );
+  }
 
   return (
     <>
+      {contextHolder}
       <div className="w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Section */}
         <div className="lg:col-span-8 space-y-6">
@@ -85,12 +251,10 @@ export default function ServiceDetails() {
                   </span>
                 }
                 name="category"
-                initialValue={id}
               >
-                <Select
-                  placeholder="Select a category"
+                <Input
+                  placeholder="Service category"
                   size="large"
-                  options={categoryOptions}
                   className="w-full h-12 rounded-xl"
                   disabled
                 />
@@ -118,7 +282,11 @@ export default function ServiceDetails() {
                   </span>
                 }
               >
-                <Upload.Dragger className="bg-[#FAFBFF] border-dashed border-2 border-blue-100 rounded-3xl py-12">
+                <Upload.Dragger
+                  className="bg-[#FAFBFF] border-dashed border-2 border-blue-100 rounded-3xl py-12"
+                  customRequest={handleMediaUpload}
+                  multiple
+                >
                   <div className="flex flex-col items-center">
                     <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4">
                       <LuUpload size={32} />
@@ -144,6 +312,8 @@ export default function ServiceDetails() {
                   placeholder="e.g. 10001"
                   size="large"
                   className="h-12 rounded-xl bg-gray-50 border-gray-100"
+                  value={zipCode}
+                  onChange={(event) => setZipCode(event.target.value)}
                 />
               </div>
 
@@ -159,7 +329,10 @@ export default function ServiceDetails() {
                     </p>
                   </div>
                 </div>
-                <Switch />
+                <Switch
+                  checked={markAsPriority}
+                  onChange={(checked) => setMarkAsPriority(checked)}
+                />
               </div>
             </div>
           </div>
@@ -176,7 +349,7 @@ export default function ServiceDetails() {
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-400 font-medium">Category</span>
                 <span className="font-bold text-gray-900 bg-gray-100 px-3 py-1 rounded-lg capitalize">
-                  {id}
+                  {serviceDetails?.name_en || "N/A"}
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm">
@@ -212,7 +385,9 @@ export default function ServiceDetails() {
             <Button
               block
               onClick={handleSendRequest}
-              className="h-16 bg-[#F59E0B] hover:bg-[#D97706]! text-white border-none font-bold text-lg rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-orange-200 transition-all hover:-translate-y-1 active:scale-95"
+              loading={isSubmitting || isProcessingAi || isDiagnosing}
+              disabled={!serviceRequest?.id}
+              className="h-24 bg-[#F59E0B] text-white border-none font-bold text-2xl rounded-2xl flex items-center justify-center gap-2 shadow-xl transition-all hover:-translate-y-1 active:scale-95"
             >
               Send Request <LuArrowRight />
             </Button>
@@ -232,17 +407,17 @@ export default function ServiceDetails() {
         centered
         width={520}
       >
-        <div className="space-y-10">
-          <div className="flex items-center gap-5">
-            <div className="w-16 h-16 bg-[#FFF7E8] text-[#F59E0B] rounded-2xl flex items-center justify-center shadow-inner">
-              <LuSparkles size={32} className="animate-spin-slow" />
+        <div className="space-y-8">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-[#FFF7E8] text-[#F59E0B] rounded-2xl flex items-center justify-center shadow-inner">
+              <LuSparkles size={28} className="animate-spin-slow" />
             </div>
             <div>
-              <h2 className="text-3xl font-black text-gray-900 tracking-tight">
+              <h2 className="text-2xl font-black text-gray-900 tracking-tight">
                 Analyzing Issue
               </h2>
               <p className="text-gray-400 text-sm mt-1 font-bold">
-                Processing step {loadingStep} of 4
+                Step {loadingStep} of 4
               </p>
             </div>
           </div>
@@ -252,58 +427,53 @@ export default function ServiceDetails() {
               percent={loadingStep * 25}
               showInfo={false}
               strokeColor="#F59E0B"
-              trailColor="#F1F5F9"
-              strokeWidth={14}
+              railColor="#EEF2F6"
+              size={{ height: 8 }}
               className="m-0"
             />
-            <div className="flex justify-between px-2">
+            <div className="flex justify-between px-1">
               {[1, 2, 3, 4].map((dot) => (
                 <div
                   key={dot}
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${
-                    loadingStep >= dot
-                      ? "bg-[#F59E0B] scale-125"
-                      : "bg-gray-200"
-                  }`}
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${loadingStep >= dot ? "bg-[#F59E0B]" : "bg-[#E2E8F0]"
+                    }`}
                 />
               ))}
             </div>
           </div>
 
-          <div className="flex gap-5 items-center bg-blue-50/40 p-5 rounded-3xl border border-blue-50">
-            <div className="p-4 bg-white text-blue-500 rounded-2xl shadow-sm">
-              <LuScan size={28} className="animate-pulse" />
+          <div className="flex gap-4 items-center bg-blue-50/40 p-5 rounded-3xl border border-blue-50">
+            <div className="p-3 bg-white text-blue-500 rounded-2xl shadow-sm">
+              <LuScan size={24} className="animate-pulse" />
             </div>
             <div>
               <p className="font-black text-gray-900 text-lg">
                 Scanning uploaded media...
               </p>
               <p className="text-gray-500 text-sm font-medium">
-                AI is identifying visual patterns and damage severity.
+                Processing images and identifying visual patterns.
               </p>
             </div>
           </div>
 
-          <div className="bg-[#F8FAFC] rounded-3xl p-8 space-y-6 border border-gray-100">
+          <div className="bg-[#F8FAFC] rounded-3xl p-6 space-y-5 border border-gray-100">
             {steps.map((step) => (
-              <div key={step.id} className="flex items-center gap-5">
+              <div key={step.id} className="flex items-center gap-4">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                    loadingStep >= step.id
-                      ? "bg-[#F59E0B] text-white shadow-lg shadow-orange-100 scale-110"
-                      : "bg-white text-gray-300 border border-gray-100"
-                  }`}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${loadingStep >= step.id
+                    ? "bg-[#F59E0B] text-white shadow-md shadow-orange-100"
+                    : "bg-white text-gray-300 border border-gray-200"
+                    }`}
                 >
                   {loadingStep > step.id ? (
-                    <LuUserCheck size={20} />
+                    <LuCheck size={18} />
                   ) : (
                     step.icon
                   )}
                 </div>
                 <p
-                  className={`font-black text-sm tracking-wide transition-colors ${
-                    loadingStep >= step.id ? "text-gray-800" : "text-gray-300"
-                  }`}
+                  className={`font-bold text-sm transition-colors ${loadingStep >= step.id ? "text-gray-800" : "text-gray-300"
+                    }`}
                 >
                   {step.label}
                 </p>
@@ -315,4 +485,3 @@ export default function ServiceDetails() {
     </>
   );
 }
-// test comment

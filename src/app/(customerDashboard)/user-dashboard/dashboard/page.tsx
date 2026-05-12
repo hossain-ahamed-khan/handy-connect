@@ -2,8 +2,6 @@
 import Link from "next/link";
 import { IconType } from "react-icons";
 import { LuHammer, LuPaintbrush } from "react-icons/lu";
-import { selectUser } from "@/redux/features/auth/authSlice";
-import { useAppSelector } from "@/redux/hooks";
 import {
   MdOutlineCleaningServices,
   MdOutlineElectricalServices,
@@ -16,7 +14,7 @@ import {
   MdOutlineEco,
   MdOutlineBolt,
 } from "react-icons/md";
-import { useGetHomePageDataQuery } from "@/redux/features/customer/homepage/homePageApi"; // adjust import path as needed
+import { useGetHomePageDataQuery } from "@/redux/features/customer/homepage/homePageApi";
 
 // Map API icon strings to React icon components
 const iconMap: Record<string, IconType> = {
@@ -39,8 +37,9 @@ const getFallbackIcon = (): IconType => MdOutlineHandyman;
 
 type RecentRequest = {
   id: number;
-  title: string;
-  date: string;
+  service_name: string;
+  service_icon: string;
+  display_text: string;
   status: string;
 };
 
@@ -57,27 +56,11 @@ type Category = {
   updated_at: string;
 };
 
-type HomePageResponse = {
-  profile?: {
-    id: number;
-    email: string;
-    full_name: string;
-    phone_number: string | null;
-    role: string;
-    is_verified: boolean;
-  };
-  recent_requests?: RecentRequest[];
-  categories?: Category[];
-};
-
 export default function UserDashboard() {
-  const user = useAppSelector(selectUser);
-  const { data, isLoading } = useGetHomePageDataQuery(
-    undefined
-  ) as { data?: HomePageResponse; isLoading: boolean };
-
+  const { data, isLoading, isError } = useGetHomePageDataQuery(undefined);
   const categories: Category[] = data?.categories ?? [];
   const recentRequests: RecentRequest[] = data?.recent_requests ?? [];
+  const profileName = data?.profile?.full_name || "";
 
   return (
     <div className="bg-[#F8FAFC] dark:bg-gray-900">
@@ -85,7 +68,7 @@ export default function UserDashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            Hello, {user?.full_name || user?.email} <span className="text-2xl">👋</span>
+            Hello{profileName ? ` ${profileName}` : ""} <span className="text-2xl">👋</span>
           </h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             What service do you need today?
@@ -120,7 +103,11 @@ export default function UserDashboard() {
         <div className="space-y-3">
           {isLoading ? (
             <div className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">
-              Loading...
+              Loading recent requests...
+            </div>
+          ) : isError ? (
+            <div className="text-sm text-red-500 py-4 text-center">
+              Failed to load recent requests.
             </div>
           ) : recentRequests.length === 0 ? (
             <div className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">
@@ -134,19 +121,25 @@ export default function UserDashboard() {
               >
                 <div className="flex items-center gap-4">
                   <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <MdOutlineWaterDrop className="text-blue-500 text-xl" />
+                    {(() => {
+                      const IconComponent =
+                        iconMap[request.service_icon] ?? getFallbackIcon();
+                      return (
+                        <IconComponent className="text-blue-500 text-xl" />
+                      );
+                    })()}
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                      {request.title}
+                      {request.service_name || "Service Request"}
                     </h4>
                     <p className="text-xs text-blue-400 font-medium">
-                      {request.date} · {request.status}
+                      {request.display_text} · {request.status}
                     </p>
                   </div>
                 </div>
                 <span className="px-3 py-1 bg-cyan-50 dark:bg-cyan-900/20 text-[#64748B] text-[10px] font-bold rounded-lg uppercase tracking-wider">
-                  In Process
+                  {request.status}
                 </span>
               </div>
             ))
@@ -159,31 +152,25 @@ export default function UserDashboard() {
         <h3 className="font-bold text-gray-900 dark:text-white mb-6">
           Categories
         </h3>
-        {isLoading ? (
-          <div className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">
-            Loading...
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {categories.map((category) => {
-              const IconComponent = iconMap[category.icon] ?? getFallbackIcon();
-              return (
-                <Link
-                  key={category.id}
-                  href={`/user-dashboard/dashboard/${category.id}`}
-                  className="group flex flex-col items-center justify-center bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-50 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-100 transition-all"
-                >
-                  <div className="w-14 h-14 bg-[#F1F5F9] dark:bg-gray-700 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-50 transition-colors">
-                    <IconComponent className="text-gray-600 dark:text-gray-300 text-2xl group-hover:text-blue-500 transition-colors" />
-                  </div>
-                  <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 text-center">
-                    {category.name_en}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {categories.map((category) => {
+            const IconComponent = iconMap[category.icon] ?? getFallbackIcon();
+            return (
+              <Link
+                key={category.id}
+                href={`/user-dashboard/dashboard/${category.id}`}
+                className="group flex flex-col items-center justify-center bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-50 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-blue-100 transition-all"
+              >
+                <div className="w-14 h-14 bg-[#F1F5F9] dark:bg-gray-700 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-50 transition-colors">
+                  <IconComponent className="text-gray-600 dark:text-gray-300 text-2xl group-hover:text-blue-500 transition-colors" />
+                </div>
+                <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 text-center">
+                  {category.name_en}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
