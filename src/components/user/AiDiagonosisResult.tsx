@@ -1,5 +1,8 @@
 "use client";
 import { useState } from "react";
+import { useGetProviderListQuery } from "@/redux/features/customer/providerList/providerListApi";
+import { useSendOfferMutation } from "@/redux/features/customer/sendOffer/sendOfferApi";
+import Image from "next/image";
 
 type AiDiagnosisPrice = {
     max: number;
@@ -23,6 +26,16 @@ export type AiDiagnosisResponse = {
     retry_after_seconds: number | null;
     data: AiDiagnosisData | null;
     error: string | null;
+};
+
+type Provider = {
+    id: number;
+    full_name: string;
+    category_name: string;
+    profile_photo: string | null;
+    zip_code: string | null;
+    is_verified: boolean;
+    rating: string;
 };
 
 const CheckCircleIcon = () => (
@@ -61,17 +74,62 @@ const WarningIcon = () => (
 type AIDiagnosisProps = {
     result?: AiDiagnosisResponse | null;
     isLoading?: boolean;
+    requestId?: number | null;
     onBack?: () => void;
 };
 
-export default function AIDiagnosis({ result, isLoading, onBack }: AIDiagnosisProps) {
-    const [sent, setSent] = useState(false);
+export default function AIDiagnosis({ result, isLoading, requestId, onBack }: AIDiagnosisProps) {
+    const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
+    const [showProviderList, setShowProviderList] = useState(false);
+    const [activeProviderId, setActiveProviderId] = useState<number | null>(null);
+    const [sentOfferProviderIds, setSentOfferProviderIds] = useState<number[]>([]);
+    const [offerMessage, setOfferMessage] = useState<string | null>(null);
     const data = result?.data ?? null;
     const showLoading = isLoading || !data;
+    const shouldLoadProviders = isOfferModalOpen && showProviderList;
+
+    const {
+        data: providerList,
+        isFetching: isProviderLoading,
+        isError: isProviderError,
+        refetch: refetchProviders,
+    } = useGetProviderListQuery(undefined, { skip: !shouldLoadProviders });
+
+    const [sendOffer, { isLoading: isSendingOffer }] = useSendOfferMutation();
+
+    const handleSendOffer = async (providerId: number) => {
+        if (!requestId) {
+            setOfferMessage("Request is not ready yet. Please try again in a moment.");
+            return;
+        }
+
+        if (sentOfferProviderIds.includes(providerId)) {
+            setOfferMessage("Offer already sent to this professional.");
+            return;
+        }
+
+        setActiveProviderId(providerId);
+        setOfferMessage(null);
+
+        try {
+            const response = await sendOffer({
+                requestId,
+                formData: { direct_hire_provider_id: providerId },
+            }).unwrap();
+
+            const message = typeof response?.message === "string" ? response.message : "Offer sent.";
+            setOfferMessage(message);
+            setSentOfferProviderIds((prev) => [...prev, providerId]);
+        } catch {
+            setOfferMessage("Failed to send offer. Please try again.");
+        } finally {
+            setActiveProviderId(null);
+        }
+    };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-            <div className="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-gray-50 flex justify-center p-6">
+            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 {/* Header */}
                 <div className="p-6 pb-0">
                     <div className="flex items-center gap-2 mb-6">
@@ -151,21 +209,175 @@ export default function AIDiagnosis({ result, isLoading, onBack }: AIDiagnosisPr
                 {/* Action Buttons */}
                 <div className="border-t border-gray-100 flex">
                     <button
-                        className="flex-1 py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors border-r border-gray-100"
+                        className="flex-1 py-4 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors border-r border-gray-100 cursor-pointer"
                         onClick={onBack}
                     >
                         Back
                     </button>
                     <button
-                        onClick={() => setSent(true)}
-                        className="flex-1 py-4 text-sm font-semibold text-white transition-colors"
-                        style={{ backgroundColor: sent ? "#b07d10" : "#E8A020" }}
+                        onClick={() => {
+                            if (showLoading) return;
+                            setIsOfferModalOpen(true);
+                            setShowProviderList(false);
+                            setOfferMessage(null);
+                        }}
+                        className="flex-1 py-4 text-sm font-semibold text-white transition-colors bg-[#F59E0B] cursor-pointer"
                         disabled={showLoading}
                     >
-                        {showLoading ? "Analyzing..." : sent ? "Offer Sent!" : "Send an offer"}
+                        {showLoading ? "Analyzing..." : "Send an offer"}
                     </button>
                 </div>
             </div>
+
+            {isOfferModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+                        {!showProviderList ? (
+                            <>
+                                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
+                                    <span className="text-xl text-amber-600">⚡</span>
+                                </div>
+                                <h3 className="text-center text-lg font-semibold text-gray-900">Direct Hire a Professional</h3>
+                                <p className="mt-2 text-center text-sm text-gray-500">
+                                    Don&#39;t want to wait? Browse verified professionals in your area and hire instantly — fast, trusted,
+                                    and fee-free.
+                                </p>
+
+                                <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                                    <div className="flex items-start gap-3">
+                                        <span className="mt-0.5 text-amber-500">✓</span>
+                                        <span>Instant access to nearby professionals</span>
+                                    </div>
+                                    <div className="mt-3 flex items-start gap-3">
+                                        <span className="mt-0.5 text-amber-500">✓</span>
+                                        <span>All providers are verified &amp; trusted</span>
+                                    </div>
+                                    <div className="mt-3 flex items-start gap-3">
+                                        <span className="mt-0.5 text-amber-500">✓</span>
+                                        <span>Skip the wait — hire on your schedule</span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    className="mt-6 w-full rounded-xl bg-[#F59E0B] py-3 text-sm font-semibold text-white hover:bg-[#F59E0B]/90 transition-colors cursor-pointer"
+                                    type="button"
+                                    onClick={() => setShowProviderList(true)}
+                                >
+                                    Find Professional Now
+                                </button>
+                                <button
+                                    className="mt-6 w-full text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                                    type="button"
+                                    onClick={() => setIsOfferModalOpen(false)}
+                                >
+                                    Maybe Later
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="text-center text-lg font-semibold text-gray-900">Available Professionals</h3>
+                                <p className="mt-2 text-center text-sm text-gray-500">
+                                    Choose a professional and send a direct hire offer.
+                                </p>
+
+                                {offerMessage && (
+                                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+                                        {offerMessage}
+                                    </div>
+                                )}
+
+                                <div className="mt-5 space-y-3">
+                                    {isProviderLoading && (
+                                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                            Loading professionals...
+                                        </div>
+                                    )}
+                                    {isProviderError && !isProviderLoading && (
+                                        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+                                            Failed to load professionals.
+                                            <button
+                                                type="button"
+                                                className="ml-2 font-semibold text-red-700 underline"
+                                                onClick={() => refetchProviders()}
+                                            >
+                                                Retry
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {Array.isArray(providerList) && providerList.length === 0 && !isProviderLoading && !isProviderError && (
+                                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                            No professionals found at the moment.
+                                        </div>
+                                    )}
+
+                                    {Array.isArray(providerList) &&
+                                        providerList.map((provider: Provider) => (
+                                            <div
+                                                key={provider.id}
+                                                className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-11 w-11 overflow-hidden rounded-full border border-gray-100 bg-gray-100">
+                                                        {provider.profile_photo ? (
+                                                            <Image
+                                                                src={provider.profile_photo}
+                                                                alt={provider.full_name}
+                                                                width={44}
+                                                                height={44}
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-gray-500">
+                                                                {provider.full_name?.[0] ?? "P"}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-semibold text-gray-900">
+                                                            {provider.full_name}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {provider.category_name} · Rating {provider.rating}
+                                                        </p>
+                                                    </div>
+                                                    {provider.is_verified && (
+                                                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-600">
+                                                            Verified
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    className="mt-4 w-full rounded-xl bg-[#F59E0B] py-2.5 text-xs font-semibold text-white hover:bg-[#F59E0B]/90 transition-colors cursor-pointer"
+                                                    onClick={() => handleSendOffer(provider.id)}
+                                                    disabled={
+                                                        (isSendingOffer && activeProviderId === provider.id) ||
+                                                        sentOfferProviderIds.includes(provider.id)
+                                                    }
+                                                >
+                                                    {sentOfferProviderIds.includes(provider.id)
+                                                        ? "Offer Sent"
+                                                        : isSendingOffer && activeProviderId === provider.id
+                                                            ? "Sending offer..."
+                                                            : "Send Direct Offer"}
+                                                </button>
+                                            </div>
+                                        ))}
+                                </div>
+
+                                <button
+                                    className="mt-6 w-full text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                                    type="button"
+                                    onClick={() => setIsOfferModalOpen(false)}
+                                >
+                                    Close
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

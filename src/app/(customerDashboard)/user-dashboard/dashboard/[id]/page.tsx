@@ -226,6 +226,7 @@ export default function ServiceDetails() {
         <AIDiagnosis
           result={aiResult}
           isLoading={isDiagnosing}
+          requestId={aiRequestId}
           onBack={() => setAiResult(null)}
         />
       </>
