@@ -10,7 +10,7 @@ import {
   MdOutlineTrendingUp,
   MdVerified,
 } from "react-icons/md";
-import { useGetProfessionalsDetailsQuery } from "@/redux/features/customer/professionals/professionalsListApi"; // update this import path
+import { useGetHomePageDataQuery } from "@/redux/features/customer/providerProfile/providerProfile";
 import Image from "next/image";
 
 type ProfessionalService = {
@@ -61,7 +61,9 @@ type ProfessionalDetailsResponse = {
 };
 
 export default function ProfessionalDetails({ id }: { id: number }) {
-  const { data, isLoading, isError } = useGetProfessionalsDetailsQuery(id) as {
+  const { data, isLoading, isError } = useGetHomePageDataQuery({
+    providerId: id,
+  }) as {
     data?: ProfessionalDetailsResponse;
     isLoading: boolean;
     isError: boolean;

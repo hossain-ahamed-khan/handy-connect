@@ -69,7 +69,6 @@ const professionalNavigation = [
         icon: MdWork,
 
         href: "/professional-dashboard/job-request",
-        badge: 3,
       },
       {
         name: "Active Jobs",

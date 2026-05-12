@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useGetJobRequestListQuery } from "@/redux/features/professional/jobRequests/jobRequestListApi";
 
 interface Job {
   id: number;
@@ -20,65 +21,46 @@ interface Job {
   mediaCount: number;
 }
 
-const sampleJobs: Job[] = [
-  {
-    id: 1,
-    title: "Fix Running Toilet",
-    category: "plumbing",
-    client: "Emma Davis",
-    clientInitials: "ED",
-    submittedAgo: "Submitted 1d ago",
-    description:
-      "Toilet keeps running after flushing. Probably needs new flapper.",
-    aiDiagnosis: "Faulty flapper valve or fill valve",
-    distance: "1.5 km away",
-    schedule: "Flexible",
-    priceMin: 60,
-    priceMax: 90,
-    address: "45 Maple St, Tel Aviv",
-    zipCode: "61000",
-    phone: "0501234567",
-    mediaCount: 0,
-  },
-  {
-    id: 2,
-    title: "Fix Running Toilet",
-    category: "plumbing",
-    client: "Emma Davis",
-    clientInitials: "ED",
-    submittedAgo: "Submitted 2d ago",
-    description:
-      "Toilet keeps running after flushing. Probably needs new flapper.",
-    aiDiagnosis: "Blockage in P-trap or main drain line",
-    distance: "1.5 km away",
-    schedule: "Flexible",
-    priceMin: 60,
-    priceMax: 90,
-    address: "102 Allenby St, Tel Aviv",
-    zipCode: "65812",
-    phone: "0501123334",
-    mediaCount: 1,
-  },
-  {
-    id: 3,
-    title: "Fix Running Toilet",
-    category: "plumbing",
-    client: "Emma Davis",
-    clientInitials: "ED",
-    submittedAgo: "Submitted 3h ago",
-    description:
-      "Toilet keeps running after flushing. Probably needs new flapper.",
-    aiDiagnosis: "Worn cartridge or O-ring seal",
-    distance: "1.5 km away",
-    schedule: "Flexible",
-    priceMin: 60,
-    priceMax: 90,
-    address: "17 Dizengoff St, Tel Aviv",
-    zipCode: "64332",
-    phone: "0529876543",
-    mediaCount: 2,
-  },
-];
+interface JobRequestApiItem {
+  id: number;
+  customer_name: string;
+  service_details?: {
+    name_en?: string;
+    name_de?: string;
+  };
+  description: string | null;
+  ai_summary: string | null;
+  ai_cost?: {
+    min?: number | string;
+    max?: number | string;
+    currency?: string;
+  };
+  address: string | null;
+  zip_code: string | null;
+  phone_number: string | null;
+  media?: Array<{ id: number }>;
+  formatted_date?: string;
+  created_at?: string;
+}
+
+interface JobRequestListResponse {
+  active_and_completed?: JobRequestApiItem[];
+  new_leads?: JobRequestApiItem[];
+}
+
+const parsePrice = (value?: number | string) => {
+  if (value === undefined || value === null) return 0;
+  const parsed = typeof value === "string" ? Number(value) : value;
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatDateLabel = (formatted?: string, fallback?: string) => {
+  if (formatted) return `Submitted ${formatted}`;
+  if (!fallback) return "Submitted recently";
+  const parsed = new Date(fallback);
+  if (Number.isNaN(parsed.getTime())) return "Submitted recently";
+  return `Submitted ${parsed.toLocaleDateString()}`;
+};
 
 function JobDetailView({
   job,
@@ -451,11 +433,71 @@ function JobCard({ job, onOpen }: { job: Job; onOpen: () => void }) {
 
 export default function JobList() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const { data, isLoading, isError } = useGetJobRequestListQuery(undefined);
+
+  const jobs = useMemo<Job[]>(() => {
+    const response = data as JobRequestListResponse | undefined;
+    const combined = [
+      ...(response?.new_leads ?? []),
+      ...(response?.active_and_completed ?? []),
+    ];
+
+    return combined.map((item) => {
+      const min = parsePrice(item.ai_cost?.min);
+      const max = parsePrice(item.ai_cost?.max);
+      const serviceName =
+        item.service_details?.name_en ||
+        item.service_details?.name_de ||
+        "Service";
+      const customerName = item.customer_name || "Customer";
+      const initials = customerName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase();
+
+      return {
+        id: item.id,
+        title: serviceName,
+        category: serviceName.toLowerCase(),
+        client: customerName,
+        clientInitials: initials || "C",
+        submittedAgo: formatDateLabel(item.formatted_date, item.created_at),
+        description: item.description || "No description provided.",
+        aiDiagnosis: item.ai_summary || "No AI summary available.",
+        distance: "Distance unavailable",
+        schedule: "Flexible",
+        priceMin: min,
+        priceMax: max || min,
+        address: item.address || "Address unavailable",
+        zipCode: item.zip_code || "N/A",
+        phone: item.phone_number || "Not provided",
+        mediaCount: item.media?.length ?? 0,
+      };
+    });
+  }, [data]);
 
   return (
     <>
       <div className="w-full mx-auto flex flex-col gap-4">
-        {sampleJobs.map((job) => (
+        {isLoading && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 text-sm text-gray-500">
+            Loading job requests...
+          </div>
+        )}
+        {isError && !isLoading && (
+          <div className="bg-white rounded-2xl border border-red-200 p-5 text-sm text-red-500">
+            Failed to load job requests.
+          </div>
+        )}
+        {!isLoading && !isError && jobs.length === 0 && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 text-sm text-gray-500">
+            No job requests available.
+          </div>
+        )}
+        {jobs.map((job) => (
           <JobCard key={job.id} job={job} onOpen={() => setSelectedJob(job)} />
         ))}
       </div>
