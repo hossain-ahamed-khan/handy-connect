@@ -12,3 +12,21 @@ const jobRequestListApi = baseApi.injectEndpoints({
 })
 
 export const { useGetJobRequestListQuery } = jobRequestListApi;
+
+
+
+
+
+const responseToJobRequestApi = baseApi.injectEndpoints({
+    endpoints: (builder) => ({
+        responseToJobRequest: builder.mutation({
+            query: ({ action, requestId }) => ({
+                url: `/api/services/requests/${requestId}/respond/`,
+                method: 'POST',
+                body: { action }
+            })
+        }),
+    })
+})
+
+export const { useResponseToJobRequestMutation } = responseToJobRequestApi;

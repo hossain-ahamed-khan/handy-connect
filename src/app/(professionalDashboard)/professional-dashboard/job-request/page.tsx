@@ -1,6 +1,9 @@
 "use client";
 import { useMemo, useState } from "react";
-import { useGetJobRequestListQuery } from "@/redux/features/professional/jobRequests/jobRequestListApi";
+import {
+  useGetJobRequestListQuery,
+  useResponseToJobRequestMutation,
+} from "@/redux/features/professional/jobRequests/jobRequestListApi";
 
 interface Job {
   id: number;
@@ -67,11 +70,17 @@ function JobDetailView({
   onBack,
   onAccept,
   onDecline,
+  isResponding,
+  responseMessage,
+  responseStatus,
 }: {
   job: Job;
   onBack: () => void;
   onAccept: () => void;
   onDecline: () => void;
+  isResponding: boolean;
+  responseMessage?: string;
+  responseStatus?: "accepted" | "declined";
 }) {
   return (
     <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col">
@@ -137,6 +146,12 @@ function JobDetailView({
               </p>
             </div>
           </div>
+
+          {responseMessage && (
+            <div className="bg-green-50 border border-green-100 rounded-2xl p-4 text-sm text-green-700">
+              {responseMessage}
+            </div>
+          )}
 
           {/* Uploaded Media */}
           <div className="bg-white rounded-2xl border border-gray-200 p-4">
@@ -256,55 +271,82 @@ function JobDetailView({
 
       {/* Fixed bottom actions */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4 flex gap-3">
-        <button
-          onClick={onAccept}
-          className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-amber-400 hover:bg-amber-500 text-white font-semibold text-sm transition-colors"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.5}
-            viewBox="0 0 24 24"
+        {responseStatus ? (
+          <div
+            className={`flex-1 flex items-center justify-center h-11 rounded-xl font-semibold text-sm ${responseStatus === "accepted"
+                ? "bg-green-100 text-green-700"
+                : "bg-gray-100 text-gray-600"
+              }`}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-          Accept Job
-        </button>
-        <button
-          onClick={onDecline}
-          className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.5}
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-          Decline
-        </button>
+            {responseStatus === "accepted" ? "✓ Job Accepted" : "Job Declined"}
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={onAccept}
+              disabled={isResponding}
+              className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-amber-400 hover:bg-amber-500 text-white font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              Accept Job
+            </button>
+            <button
+              onClick={onDecline}
+              disabled={isResponding}
+              className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+              Decline
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
 // ── JobCard is 100% identical to the original ──────────────────────────────
-function JobCard({ job, onOpen }: { job: Job; onOpen: () => void }) {
-  const [status, setStatus] = useState<"pending" | "accepted" | "declined">(
-    "pending",
-  );
-
+function JobCard({
+  job,
+  onOpen,
+  onAccept,
+  onDecline,
+  status,
+  responseMessage,
+  isResponding,
+}: {
+  job: Job;
+  onOpen: () => void;
+  onAccept: () => void;
+  onDecline: () => void;
+  status: "pending" | "accepted" | "declined";
+  responseMessage?: string;
+  isResponding: boolean;
+}) {
   if (status === "declined") return null;
 
   return (
@@ -384,9 +426,10 @@ function JobCard({ job, onOpen }: { job: Job; onOpen: () => void }) {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setStatus("accepted");
+              onAccept();
             }}
-            className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-amber-400 hover:bg-amber-500 text-white font-semibold text-sm transition-colors"
+            disabled={isResponding}
+            className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-amber-400 hover:bg-amber-500 text-white font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <svg
               className="w-4 h-4"
@@ -406,9 +449,10 @@ function JobCard({ job, onOpen }: { job: Job; onOpen: () => void }) {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setStatus("declined");
+              onDecline();
             }}
-            className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors"
+            disabled={isResponding}
+            className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <svg
               className="w-4 h-4"
@@ -427,6 +471,12 @@ function JobCard({ job, onOpen }: { job: Job; onOpen: () => void }) {
           </button>
         </div>
       )}
+
+      {responseMessage && (
+        <p className="mt-3 text-xs text-green-600 font-medium">
+          {responseMessage}
+        </p>
+      )}
     </div>
   );
 }
@@ -434,6 +484,18 @@ function JobCard({ job, onOpen }: { job: Job; onOpen: () => void }) {
 export default function JobList() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const { data, isLoading, isError } = useGetJobRequestListQuery(undefined);
+  const [respondToJob] = useResponseToJobRequestMutation();
+  const [respondingId, setRespondingId] = useState<number | null>(null);
+  const [jobResponses, setJobResponses] = useState<
+    Record<
+      number,
+      {
+        status: "accepted" | "declined";
+        message: string;
+        isSold?: boolean;
+      }
+    >
+  >({});
 
   const jobs = useMemo<Job[]>(() => {
     const response = data as JobRequestListResponse | undefined;
@@ -479,6 +541,31 @@ export default function JobList() {
     });
   }, [data]);
 
+  const handleRespond = async (job: Job, action: "accept" | "decline") => {
+    if (respondingId) return;
+    setRespondingId(job.id);
+    try {
+      const response = await respondToJob({
+        action,
+        requestId: job.id,
+      }).unwrap();
+
+      setJobResponses((prev) => ({
+        ...prev,
+        [job.id]: {
+          status: action === "accept" ? "accepted" : "declined",
+          message:
+            response?.message ||
+            (action === "accept" ? "Lead accepted." : "Lead declined."),
+          isSold: response?.is_sold,
+        },
+      }));
+      setSelectedJob(null);
+    } finally {
+      setRespondingId(null);
+    }
+  };
+
   return (
     <>
       <div className="w-full mx-auto flex flex-col gap-4">
@@ -497,17 +584,34 @@ export default function JobList() {
             No job requests available.
           </div>
         )}
-        {jobs.map((job) => (
-          <JobCard key={job.id} job={job} onOpen={() => setSelectedJob(job)} />
-        ))}
+        {jobs.map((job) => {
+          const response = jobResponses[job.id];
+          const status = response?.status ?? "pending";
+
+          return (
+            <JobCard
+              key={job.id}
+              job={job}
+              onOpen={() => setSelectedJob(job)}
+              onAccept={() => handleRespond(job, "accept")}
+              onDecline={() => handleRespond(job, "decline")}
+              status={status}
+              responseMessage={response?.message}
+              isResponding={respondingId === job.id}
+            />
+          );
+        })}
       </div>
 
       {selectedJob && (
         <JobDetailView
           job={selectedJob}
           onBack={() => setSelectedJob(null)}
-          onAccept={() => setSelectedJob(null)}
-          onDecline={() => setSelectedJob(null)}
+          onAccept={() => handleRespond(selectedJob, "accept")}
+          onDecline={() => handleRespond(selectedJob, "decline")}
+          isResponding={respondingId === selectedJob.id}
+          responseMessage={jobResponses[selectedJob.id]?.message}
+          responseStatus={jobResponses[selectedJob.id]?.status}
         />
       )}
     </>
