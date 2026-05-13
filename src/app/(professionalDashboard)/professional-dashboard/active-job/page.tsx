@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { toast } from "sonner";
 import { useGetActiveJobsQuery } from "@/redux/features/professional/activeJobs/activeJobsApi";
 import {
   useJobCompleteMutation,
@@ -129,7 +130,7 @@ export default function JobDetailsCard() {
   const allJobs = [
     ...activeAndCompleted.map((job) => ({ ...job, source: "active" as const })),
     ...newLeads.map((job) => ({ ...job, source: "lead" as const })),
-  ];
+  ].filter((job) => job.status !== "PENDING");
 
   const getStatusIndex = (status?: ActiveJob["status"]) => {
     if (!status) {
@@ -209,6 +210,14 @@ export default function JobDetailsCard() {
         status_display: statusDisplay ?? jobOverrides[jobId]?.status_display,
       });
       clearCompletionError(jobId);
+
+      const successMessage =
+        nextStatus === "ON_THE_WAY"
+          ? "Marked as on the way."
+          : nextStatus === "IN_PROGRESS"
+            ? "Job started successfully."
+            : "Job completed successfully.";
+      toast.success(successMessage);
     } catch (error) {
       const err = error as {
         status?: number;
@@ -216,6 +225,9 @@ export default function JobDetailsCard() {
         error?: string;
         message?: string;
       };
+      const errorMessage =
+        err?.message || err?.error || "Failed to update job status.";
+      toast.error(errorMessage);
       console.error("Failed to advance job status", {
         status: err?.status,
         data: err?.data,
@@ -251,7 +263,7 @@ export default function JobDetailsCard() {
 
   return (
     <div className="flex items-center justify-center">
-      <div className="w-full flex flex-col gap-3">
+      <div className="w-4/5 mx-auto flex flex-col gap-3">
         {allJobs.map((job) => {
           const mergedJob = { ...job, ...jobOverrides[job.id] };
           const currentStatusIndex = getStatusIndex(mergedJob.status);
@@ -273,18 +285,18 @@ export default function JobDetailsCard() {
             currentStatusIndex < 1
               ? "ON_THE_WAY"
               : currentStatusIndex < 2
-              ? "IN_PROGRESS"
-              : currentStatusIndex < 3
-              ? "COMPLETED"
-              : null;
+                ? "IN_PROGRESS"
+                : currentStatusIndex < 3
+                  ? "COMPLETED"
+                  : null;
           const actionLabel =
             nextStatus === "ON_THE_WAY"
               ? "I'm on The Way"
               : nextStatus === "IN_PROGRESS"
-              ? "Start Job"
-              : nextStatus === "COMPLETED"
-              ? "Complete Job"
-              : "Completed";
+                ? "Start Job"
+                : nextStatus === "COMPLETED"
+                  ? "Complete Job"
+                  : "Completed";
           const isActionLoading =
             isOnTheWayLoading || isInProgressLoading || isCompleteLoading;
           const files = completionFiles[job.id];
@@ -512,11 +524,10 @@ export default function JobDetailsCard() {
                       onClick={() =>
                         nextStatus && handleAdvanceStatus(job.id, nextStatus)
                       }
-                      className={`w-full font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm ${
-                        isActionDisabled
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-amber-400 hover:bg-amber-500 text-white"
-                      }`}
+                      className={`w-full font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm ${isActionDisabled
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-amber-400 hover:bg-amber-500 text-white"
+                        }`}
                     >
                       <CircleCheckIcon />
                       {isActionLoading ? "Updating..." : actionLabel}

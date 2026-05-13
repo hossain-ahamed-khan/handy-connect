@@ -21,7 +21,7 @@ export default function EarningsDashboard() {
 
   return (
     <div className="flex items-center justify-center">
-      <div className="w-full bg-gray-100 rounded-2xl overflow-hidden space-y-3">
+      <div className="w-4/5 mx-auto bg-gray-100 rounded-2xl overflow-hidden space-y-3">
         {/* Total Earnings Card */}
         <div className="bg-amber-400 rounded-2xl p-5">
           <p className="text-amber-700 text-xs font-medium mb-1">

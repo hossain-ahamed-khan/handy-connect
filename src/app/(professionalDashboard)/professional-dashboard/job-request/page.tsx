@@ -274,8 +274,8 @@ function JobDetailView({
         {responseStatus ? (
           <div
             className={`flex-1 flex items-center justify-center h-11 rounded-xl font-semibold text-sm ${responseStatus === "accepted"
-                ? "bg-green-100 text-green-700"
-                : "bg-gray-100 text-gray-600"
+              ? "bg-green-100 text-green-700"
+              : "bg-gray-100 text-gray-600"
               }`}
           >
             {responseStatus === "accepted" ? "✓ Job Accepted" : "Job Declined"}
@@ -568,7 +568,7 @@ export default function JobList() {
 
   return (
     <>
-      <div className="w-full mx-auto flex flex-col gap-4">
+      <div className="w-4/5 mx-auto flex flex-col gap-4">
         {isLoading && (
           <div className="bg-white rounded-2xl border border-gray-200 p-5 text-sm text-gray-500">
             Loading job requests...

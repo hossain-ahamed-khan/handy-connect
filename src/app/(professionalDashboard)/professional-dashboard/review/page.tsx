@@ -119,7 +119,7 @@ function ReviewCard({ name, initials, color, rating, text }: ReviewCardProps) {
 export default function ReviewList() {
   return (
     <div className="flex justify-center">
-      <div className="w-full flex flex-col gap-3">
+      <div className="w-4/5 mx-auto flex flex-col gap-3">
         {reviews.map((review) => (
           <ReviewCard key={review.id} {...review} />
         ))}

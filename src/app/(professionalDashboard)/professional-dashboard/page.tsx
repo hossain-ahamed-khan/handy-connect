@@ -82,7 +82,7 @@ export default function ProfessionalDashboard() {
 
   return (
     <>
-      <div className="w-full mx-auto">
+      <div className="w-4/5 mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">

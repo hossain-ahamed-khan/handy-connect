@@ -3,28 +3,28 @@ import { baseApi } from "@/redux/api/baseApi";
 const jobProgressApi = baseApi.injectEndpoints({
     endpoints: (builder) => ({
         jobOnTheWay: builder.mutation({
-            query: ({status, jobId}) => ({
+            query: ({ status, jobId }) => ({
                 url: `/api/services/requests/${jobId}/advance-status/`,
                 method: 'POST',
                 body: { status }
             }),
-            revalidateTags: ['ActiveJobs']
+            invalidatesTags: ['ActiveJobs']
         }),
         jobInProgress: builder.mutation({
-            query: ({status, jobId}) => ({
+            query: ({ status, jobId }) => ({
                 url: `/api/services/requests/${jobId}/advance-status/`,
                 method: 'POST',
                 body: { status }
             }),
-            revalidateTags: ['ActiveJobs']
+            invalidatesTags: ['ActiveJobs']
         }),
         jobComplete: builder.mutation({
-            query: ({formData, jobId}) => ({
+            query: ({ formData, jobId }) => ({
                 url: `/api/services/requests/${jobId}/submit-bill/`,
                 method: 'POST',
                 body: formData
             }),
-            revalidateTags: ['ActiveJobs']
+            invalidatesTags: ['ActiveJobs']
         }),
     })
 })
