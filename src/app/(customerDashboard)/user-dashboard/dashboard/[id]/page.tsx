@@ -153,7 +153,7 @@ export default function ServiceDetails() {
     setIsModalOpen(true);
     setLoadingStep(1);
 
-    const stepIntervalMs = 2500;
+    const stepIntervalMs = 3750;
     const timers = [1, 2, 3, 4].map((step) =>
       setTimeout(() => setLoadingStep(step), step * stepIntervalMs)
     );
@@ -177,7 +177,7 @@ export default function ServiceDetails() {
       await processAiDiagnosis({ requestId: finalResponse.id }).unwrap();
 
       await new Promise((resolve) => {
-        setTimeout(resolve, 10000);
+        setTimeout(resolve, 15000);
       });
 
       setAiRequestId(finalResponse.id);
