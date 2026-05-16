@@ -40,6 +40,7 @@ const Signup: React.FC = () => {
 
   const [register, { isLoading: isRegistering }] = useRegisterMutation();
   const [verifyEmail, { isLoading: isVerifying }] = useVerifyEmailMutation();
+  const [resendOtp, { isLoading: isResending }] = useVerifyEmailMutation();
 
   const onFinish = async (values: SignupFormValues): Promise<void> => {
     try {
@@ -80,6 +81,20 @@ const Signup: React.FC = () => {
     }
   };
 
+  const handleResendOtp = async (): Promise<void> => {
+    if (!pendingEmail) {
+      message.error("Missing email for OTP resend.");
+      return;
+    }
+
+    try {
+      await resendOtp({ email: pendingEmail }).unwrap();
+      message.success("OTP resent. Check your email.");
+    } catch (error) {
+      message.error("Failed to resend OTP. Please try again.");
+    }
+  };
+
   const handleBack = (): void => {
     router.back();
   };
@@ -94,6 +109,27 @@ const Signup: React.FC = () => {
     color: token.colorText,
     height: 48,
   };
+
+  const passwordRules = [
+    { required: true, message: "Please enter your password" },
+    { min: 8, message: "Password must be at least 8 characters" },
+    {
+      pattern: /[a-z]/,
+      message: "Password must include a lowercase letter",
+    },
+    {
+      pattern: /[A-Z]/,
+      message: "Password must include an uppercase letter",
+    },
+    {
+      pattern: /\d/,
+      message: "Password must include a number",
+    },
+    {
+      pattern: /[^A-Za-z0-9]/,
+      message: "Password must include a special character",
+    },
+  ];
 
   return (
     <div className="min-h-screen w-full flex flex-col justify-center items-center px-4 bg-white dark:bg-gray-900 transition-colors pt-20 my-12">
@@ -251,10 +287,7 @@ const Signup: React.FC = () => {
               </span>
             }
             name="password"
-            rules={[
-              { required: true, message: "Please enter your password" },
-              { min: 6, message: "Password must be at least 6 characters" },
-            ]}
+            rules={passwordRules}
             hasFeedback
           >
             <Input.Password
@@ -405,6 +438,8 @@ const Signup: React.FC = () => {
         confirmLoading={isVerifying}
         okText="Verify"
         centered
+        width={620}
+        forceRender
       >
         <Form
           form={otpForm}
@@ -433,6 +468,17 @@ const Signup: React.FC = () => {
               </InputOTP>
             </div>
           </Form.Item>
+          <div className="flex justify-center">
+            <Button
+              type="link"
+              onClick={handleResendOtp}
+              loading={isResending}
+              disabled={!pendingEmail}
+              className="px-0"
+            >
+              Resend OTP
+            </Button>
+          </div>
         </Form>
       </Modal>
     </div>

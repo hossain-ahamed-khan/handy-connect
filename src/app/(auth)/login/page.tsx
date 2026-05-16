@@ -40,7 +40,13 @@ const LoginContent: React.FC = () => {
       };
 
       const roleRedirect = roleRedirects[response.user.role];
-      router.push(roleRedirect || redirectPath);
+      const providerRedirect =
+        response.user.role === "PROVIDER" &&
+          response.user.onboarding_status === "ACCOUNT_CREATED"
+          ? "/professional-onboarding"
+          : roleRedirect;
+
+      router.push(providerRedirect || redirectPath);
       toast.success("Login successful.");
     } catch (error) {
       console.error("Login error:", error);
