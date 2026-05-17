@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import Image from "next/image";
-import mainLogoAdmin from "../../../assets/main-logo-admin.png"
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import mainLogoAdmin from "../../../assets/main-logo-admin.png";
+import { useLoginMutation } from "@/redux/features/auth/authApi";
+import { useAppDispatch } from "@/redux/hooks";
+import { setUser, type TUser } from "@/redux/features/auth/authSlice";
 
 const EyeOffIcon = () => (
     <svg
@@ -43,13 +48,34 @@ export default function LoginForm() {
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(true);
-    const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
+    const dispatch = useAppDispatch();
+    const [login, { isLoading }] = useLoginMutation();
 
-    const handleSubmit = async (e: React.MouseEvent) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setIsLoading(true);
-        await new Promise((r) => setTimeout(r, 1500));
-        setIsLoading(false);
+
+        if (!email || !password) {
+            toast.error("Please enter your email and password.");
+            return;
+        }
+
+        try {
+            const response = await login({ email, password }).unwrap();
+            dispatch(setUser(response));
+
+            if (response.user.role !== "ADMIN") {
+                toast.error("You do not have admin access.");
+                return;
+            }
+
+            router.push("/admin-dashboard");
+            toast.success("Login successful.");
+        } catch (error) {
+            console.error("Admin login error:", error);
+            const errorMessage = (error as Error)?.message || "Something went wrong!";
+            toast.error(`Login failed: ${errorMessage}`);
+        }
     };
 
     return (
@@ -71,7 +97,7 @@ export default function LoginForm() {
                 </div>
 
                 {/* Form */}
-                <div className="space-y-5">
+                <form className="space-y-5" onSubmit={handleSubmit}>
                     {/* Email */}
                     <div className="space-y-1.5">
                         <label className="block text-sm text-gray-600 font-medium">
@@ -81,6 +107,7 @@ export default function LoginForm() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="email"
                             className="w-full px-4 py-3 border border-gray-300 rounded-md text-sm text-gray-700 placeholder-gray-400 outline-none transition-all duration-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                             placeholder="Enter your email"
                         />
@@ -96,6 +123,7 @@ export default function LoginForm() {
                                 type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                autoComplete="current-password"
                                 className="w-full px-4 py-3 pr-11 border border-gray-300 rounded-md text-sm text-gray-700 placeholder-gray-400 outline-none transition-all duration-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                                 placeholder="Enter your password"
                             />
@@ -159,8 +187,7 @@ export default function LoginForm() {
 
                     {/* Submit */}
                     <button
-                        type="button"
-                        onClick={handleSubmit}
+                        type="submit"
                         disabled={isLoading}
                         className="w-full py-3 rounded-md bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-white font-medium text-sm transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                     >
@@ -192,7 +219,7 @@ export default function LoginForm() {
                             "Sign in"
                         )}
                     </button>
-                </div>
+                </form>
             </div>
         </div>
     );
