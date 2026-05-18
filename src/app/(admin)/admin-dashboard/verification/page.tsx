@@ -1,52 +1,89 @@
 "use client";
 import { useState } from "react";
+import {
+    useGetPendingVerificationsQuery,
+    useApproveVerificationMutation,
+    useRejectVerificationMutation,
+} from "@/redux/features/admin/pendingVerifications/pendingVerificationsApi"; // adjust import path
+import Image from "next/image";
 
-interface Applicant {
+interface Verification {
     id: number;
-    initials: string;
-    color: string;
-    name: string;
+    user: number;
+    full_name: string | null;
     email: string;
-    phone: string;
-    category: string;
-    categoryColor: string;
-    serviceAreas: string[];
-    submitted: string;
-    certCount: number;
+    onboarding_status: "APPROVED" | "REJECTED" | "UNDER_REVIEW" | string;
+    is_verified: boolean;
+    is_approved: boolean;
+    government_id: string | null;
+    professional_certificate: string | null;
+    profile_photo: string | null;
 }
 
-const applicants: Applicant[] = [
-    {
-        id: 1,
-        initials: "AG",
-        color: "bg-red-500",
-        name: "Avi Goldstein",
-        email: "avi@example.com",
-        phone: "050-1112233",
-        category: "Plumbing",
-        categoryColor: "bg-blue-100 text-blue-700",
-        serviceAreas: ["Tel Aviv", "Ramat Gan"],
-        submitted: "12/21/2025",
-        certCount: 2,
-    },
-    {
-        id: 2,
-        initials: "MS",
-        color: "bg-orange-400",
-        name: "Miri Shapira",
-        email: "miri@example.com",
-        phone: "050-2223344",
-        category: "Cleaning",
-        categoryColor: "bg-green-100 text-green-700",
-        serviceAreas: ["Jerusalem", "Beit Shemesh"],
-        submitted: "12/20/2025",
-        certCount: 1,
-    },
+function getInitials(name: string | null, email: string): string {
+    if (name) {
+        return name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2);
+    }
+    return email.slice(0, 2).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+    "bg-red-500",
+    "bg-orange-400",
+    "bg-blue-500",
+    "bg-purple-500",
+    "bg-teal-500",
+    "bg-pink-500",
 ];
 
-function IdDocumentPlaceholder() {
+function getAvatarColor(id: number): string {
+    return AVATAR_COLORS[id % AVATAR_COLORS.length];
+}
+
+function StatusBadge({ status }: { status: string }) {
+    const map: Record<string, string> = {
+        APPROVED: "bg-green-100 text-green-700",
+        REJECTED: "bg-red-100 text-red-700",
+        UNDER_REVIEW: "bg-yellow-100 text-yellow-700",
+    };
+    const label: Record<string, string> = {
+        APPROVED: "Approved",
+        REJECTED: "Rejected",
+        UNDER_REVIEW: "Under Review",
+    };
     return (
-        <div className="w-full h-32 rounded-lg overflow-hidden border border-gray-200 bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center relative">
+        <span
+            className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${
+                map[status] ?? "bg-gray-100 text-gray-600"
+            }`}
+        >
+            {label[status] ?? status}
+        </span>
+    );
+}
+
+function IdDocumentSection({ url }: { url: string | null }) {
+    if (url) {
+        return (
+            <div className="w-full h-56 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                <Image
+                    src={url}
+                    alt="Government ID"
+                    className="w-full h-full object-cover"
+                    width={128}
+                    height={128}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-full h-56 rounded-lg overflow-hidden border border-gray-200 bg-linear-to-br from-blue-50 to-blue-100 flex items-center justify-center relative">
             <div className="absolute inset-0 flex flex-col justify-between p-3">
                 <div className="flex justify-between items-start">
                     <div className="flex flex-col gap-1">
@@ -68,112 +105,150 @@ function IdDocumentPlaceholder() {
                     </div>
                 </div>
             </div>
-            <span className="absolute bottom-1 right-2 text-blue-300 text-xs font-mono opacity-50">Sample</span>
+            <span className="absolute bottom-1 right-2 text-blue-300 text-xs font-mono opacity-50">
+                Not provided
+            </span>
         </div>
     );
 }
 
-function CertPlaceholder({ index }: { index: number }) {
-    const colors = [
-        { bg: "from-orange-50 to-orange-100", accent: "bg-orange-300", text: "text-orange-400" },
-        { bg: "from-blue-50 to-indigo-100", accent: "bg-indigo-300", text: "text-indigo-400" },
-        { bg: "from-teal-50 to-teal-100", accent: "bg-teal-300", text: "text-teal-400" },
-    ];
-    const c = colors[index % colors.length];
+function CertSection({ url }: { url: string | null }) {
+    if (url) {
+        return (
+            <div className="w-full h-56 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                <Image
+                    src={url}
+                    alt="Certificate"
+                    className="w-full h-full object-cover"
+                    width={128}
+                    height={128}
+                />
+            </div>
+        );
+    }
+
     return (
-        <div
-            className={`w-full h-24 rounded-md overflow-hidden border border-gray-200 bg-gradient-to-br ${c.bg} flex flex-col items-center justify-center gap-1 p-2`}
-        >
-            <div className={`h-1.5 w-3/4 ${c.accent} rounded opacity-60`} />
-            <div className={`h-2 w-1/2 ${c.accent} rounded opacity-80`} />
-            <div className={`h-1 w-2/3 ${c.accent} rounded opacity-40`} />
-            <div className={`h-1 w-1/2 ${c.accent} rounded opacity-40`} />
-            <svg className={`w-4 h-4 ${c.text} mt-1 opacity-60`} fill="currentColor" viewBox="0 0 20 20">
+        <div className="w-full h-56 rounded-lg overflow-hidden border border-gray-200 bg-linear-to-br from-orange-50 to-orange-100 flex flex-col items-center justify-center gap-1 p-2">
+            <div className="h-1.5 w-3/4 bg-orange-300 rounded opacity-60" />
+            <div className="h-2 w-1/2 bg-orange-300 rounded opacity-80" />
+            <div className="h-1 w-2/3 bg-orange-300 rounded opacity-40" />
+            <svg className="w-4 h-4 text-orange-400 mt-1 opacity-60" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
                 <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
             </svg>
+            <span className="text-orange-300 text-xs opacity-50">Not provided</span>
         </div>
     );
 }
 
-function ApplicantCard({ applicant, onApprove, onReject }: {
-    applicant: Applicant;
+function VerificationCard({
+    verification,
+    onApprove,
+    onReject,
+    isLoading,
+}: {
+    verification: Verification;
     onApprove: (id: number) => void;
     onReject: (id: number) => void;
+    isLoading: boolean;
 }) {
+    const initials = getInitials(verification.full_name, verification.email);
+    const avatarColor = getAvatarColor(verification.id);
+    const displayName = verification.full_name ?? verification.email.split("@")[0];
+
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col gap-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col gap-5">
             <div className="flex gap-6">
-                {/* Left: Applicant Info */}
-                <div className="w-52 shrink-0 flex flex-col gap-3">
+                {/* Left: Info */}
+                <div className="w-52 shrink-0 flex flex-col gap-8">
                     <div className="flex items-center gap-3">
-                        <div
-                            className={`w-10 h-10 rounded-full ${applicant.color} flex items-center justify-center text-white font-semibold text-sm shrink-0`}
-                        >
-                            {applicant.initials}
+                        <div className="relative shrink-0">
+                            {verification.profile_photo ? (
+                                <Image
+                                    src={verification.profile_photo}
+                                    alt={displayName}
+                                    className="w-10 h-10 rounded-full object-cover"
+                                    width={40}
+                                    height={40}
+                                />
+                            ) : (
+                                <div
+                                    className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white font-semibold text-sm`}
+                                >
+                                    {initials}
+                                </div>
+                            )}
                         </div>
                         <div>
-                            <div className="font-semibold text-gray-900 text-sm">{applicant.name}</div>
-                            <div className="text-gray-500 text-xs">{applicant.email}</div>
-                            <div className="text-gray-500 text-xs">{applicant.phone}</div>
+                            <div className="font-semibold text-gray-900 text-sm">{displayName}</div>
+                            <div className="text-gray-500 text-xs">{verification.email}</div>
                         </div>
                     </div>
 
                     <div>
-                        <div className="text-xs text-gray-400 font-medium mb-1">Categories</div>
-                        <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${applicant.categoryColor}`}>
-                            {applicant.category === "Plumbing" ? "🔧" : "✓"} {applicant.category}
-                        </span>
+                        <div className="text-xs text-gray-400 font-medium mb-1">Status</div>
+                        <StatusBadge status={verification.onboarding_status} />
                     </div>
 
-                    <div>
-                        <div className="text-xs text-gray-400 font-medium mb-1">Service Areas</div>
+                    <div className="flex flex-col gap-1">
+                        <div className="text-xs text-gray-400 font-medium">Flags</div>
                         <div className="flex flex-wrap gap-1">
-                            {applicant.serviceAreas.map((area) => (
-                                <span key={area} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
-                                    {area}
-                                </span>
-                            ))}
+                            <span
+                                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                    verification.is_verified
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-gray-100 text-gray-500"
+                                }`}
+                            >
+                                {verification.is_verified ? "✓ Verified" : "✗ Unverified"}
+                            </span>
+                            <span
+                                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                    verification.is_approved
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-gray-100 text-gray-500"
+                                }`}
+                            >
+                                {verification.is_approved ? "✓ Approved" : "✗ Unapproved"}
+                            </span>
                         </div>
                     </div>
 
-                    <div className="text-xs text-gray-400">
-                        <span className="font-medium">Submitted: </span>{applicant.submitted}
+                        <div className="text-xs text-gray-400">
+                        <span className="font-medium">User ID: </span>
+                        <span className="font-mono">{verification.user}</span>
                     </div>
                 </div>
 
                 {/* Middle: ID Document */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 max-w-[320px] self-center ml-24">
                     <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-2">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                         </svg>
                         ID Document
                     </div>
-                    <IdDocumentPlaceholder />
+                    <IdDocumentSection url={verification.government_id} />
                 </div>
 
-                {/* Right: Certificates */}
-                <div className="flex-1 min-w-0">
+                {/* Right: Certificate */}
+                <div className="flex-1 min-w-0 max-w-[320px] self-center ml-12">
                     <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-2">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Certificates ({applicant.certCount})
+                        Certificate
                     </div>
-                    <div className={`grid gap-2 ${applicant.certCount > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-                        {Array.from({ length: applicant.certCount }).map((_, i) => (
-                            <CertPlaceholder key={i} index={i} />
-                        ))}
-                    </div>
+                    <CertSection url={verification.professional_certificate} />
                 </div>
             </div>
 
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-1 border-t border-gray-100">
                 <button
-                    onClick={() => onReject(applicant.id)}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                    onClick={() => onReject(verification.id)}
+                    disabled={isLoading}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -181,8 +256,9 @@ function ApplicantCard({ applicant, onApprove, onReject }: {
                     Reject
                 </button>
                 <button
-                    onClick={() => onApprove(applicant.id)}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 transition-colors"
+                    onClick={() => onApprove(verification.id)}
+                    disabled={isLoading}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -195,33 +271,89 @@ function ApplicantCard({ applicant, onApprove, onReject }: {
 }
 
 export default function ProfessionalVerification() {
-    const [items, setItems] = useState(applicants);
+    const { data, isLoading, isError } = useGetPendingVerificationsQuery(undefined);
+    const [approveVerification, { isLoading: isApproving }] = useApproveVerificationMutation();
+    const [rejectVerification, { isLoading: isRejecting }] = useRejectVerificationMutation();
 
-    const handleApprove = (id: number) => setItems((prev) => prev.filter((a) => a.id !== id));
-    const handleReject = (id: number) => setItems((prev) => prev.filter((a) => a.id !== id));
+    const isMutating = isApproving || isRejecting;
+
+    const handleApprove = async (id: number) => {
+        try {
+            await approveVerification(id).unwrap();
+        } catch {
+            // handle error (toast, etc.)
+        }
+    };
+
+    const handleReject = async (id: number) => {
+        try {
+            await rejectVerification(id).unwrap();
+        } catch {
+            // handle error (toast, etc.)
+        }
+    };
+
+    const verifications: Verification[] = (data?.results ?? []).filter(
+        (verification: Verification) => !verification.is_verified
+    );
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             <div className="w-full">
                 <div className="flex items-center justify-between mb-4">
                     <h1 className="text-xl font-bold text-gray-900">Professional Verification</h1>
-                    {items.length > 0 && (
+                    {!isLoading && !isError && verifications.length > 0 && (
                         <span className="text-xs font-semibold text-yellow-700 bg-yellow-100 border border-yellow-200 px-2.5 py-1 rounded-full">
-                            {items.length} Pending
+                            {verifications.length} Pending
                         </span>
                     )}
                 </div>
 
-                {items.length > 0 ? (
+                {isLoading ? (
+                    <div className="flex flex-col gap-4">
+                        {[1, 2].map((i) => (
+                            <div
+                                key={i}
+                                className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 h-64 animate-pulse"
+                            >
+                                <div className="flex gap-6 h-full">
+                                    <div className="w-52 flex flex-col gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-gray-200" />
+                                            <div className="flex flex-col gap-1.5 flex-1">
+                                                <div className="h-3 bg-gray-200 rounded w-3/4" />
+                                                <div className="h-2.5 bg-gray-100 rounded w-full" />
+                                            </div>
+                                        </div>
+                                        <div className="h-2 bg-gray-100 rounded w-1/2" />
+                                        <div className="h-5 bg-gray-200 rounded-full w-24" />
+                                    </div>
+                                    <div className="flex-1 bg-gray-100 rounded-lg" />
+                                    <div className="flex-1 bg-gray-100 rounded-lg" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : isError ? (
+                    <div className="text-center py-16 text-red-400">
+                        <svg className="w-10 h-10 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-sm font-medium">Failed to load verifications</p>
+                    </div>
+                ) : verifications.length > 0 ? (
                     <>
-                        <p className="text-sm text-gray-500 mb-4">{items.length} pending verification{items.length !== 1 ? "s" : ""}</p>
+                        <p className="text-sm text-gray-500 mb-4">
+                            {verifications.length} pending verification{verifications.length !== 1 ? "s" : ""}
+                        </p>
                         <div className="flex flex-col gap-4">
-                            {items.map((applicant) => (
-                                <ApplicantCard
-                                    key={applicant.id}
-                                    applicant={applicant}
+                            {verifications.map((v) => (
+                                <VerificationCard
+                                    key={v.id}
+                                    verification={v}
                                     onApprove={handleApprove}
                                     onReject={handleReject}
+                                    isLoading={isMutating}
                                 />
                             ))}
                         </div>
