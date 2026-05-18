@@ -6,6 +6,7 @@ import {
     useRejectVerificationMutation,
 } from "@/redux/features/admin/pendingVerifications/pendingVerificationsApi"; // adjust import path
 import Image from "next/image";
+import { toast } from "sonner";
 
 interface Verification {
     id: number;
@@ -58,9 +59,8 @@ function StatusBadge({ status }: { status: string }) {
     };
     return (
         <span
-            className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${
-                map[status] ?? "bg-gray-100 text-gray-600"
-            }`}
+            className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${map[status] ?? "bg-gray-100 text-gray-600"
+                }`}
         >
             {label[status] ?? status}
         </span>
@@ -141,6 +141,67 @@ function CertSection({ url }: { url: string | null }) {
     );
 }
 
+function ConfirmationModal({
+    open,
+    title,
+    description,
+    confirmLabel,
+    onCancel,
+    onConfirm,
+    isLoading,
+}: {
+    open: boolean;
+    title: string;
+    description: string;
+    confirmLabel: string;
+    onCancel: () => void;
+    onConfirm: () => void;
+    isLoading: boolean;
+}) {
+    if (!open) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel}>
+            <div
+                className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+            >
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
+                    <svg className="h-6 w-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 9v2m0 4h.01M10.29 3.86l-7.17 12.4A1.5 1.5 0 004.41 19h15.18a1.5 1.5 0 001.29-2.24l-7.17-12.4a1.5 1.5 0 00-2.42 0z"
+                        />
+                    </svg>
+                </div>
+                <h3 className="text-center text-lg font-semibold text-gray-900">{title}</h3>
+                <p className="mt-2 text-center text-sm text-gray-500">{description}</p>
+
+                <div className="mt-6 flex items-center justify-end gap-2">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        disabled={isLoading}
+                        className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                        className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                        {confirmLabel}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function VerificationCard({
     verification,
     onApprove,
@@ -148,8 +209,8 @@ function VerificationCard({
     isLoading,
 }: {
     verification: Verification;
-    onApprove: (id: number) => void;
-    onReject: (id: number) => void;
+    onApprove: (id: number, displayName: string) => void;
+    onReject: (id: number, displayName: string) => void;
     isLoading: boolean;
 }) {
     const initials = getInitials(verification.full_name, verification.email);
@@ -194,27 +255,25 @@ function VerificationCard({
                         <div className="text-xs text-gray-400 font-medium">Flags</div>
                         <div className="flex flex-wrap gap-1">
                             <span
-                                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                    verification.is_verified
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-gray-100 text-gray-500"
-                                }`}
+                                className={`text-xs px-2 py-0.5 rounded-full font-medium ${verification.is_verified
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-gray-100 text-gray-500"
+                                    }`}
                             >
                                 {verification.is_verified ? "✓ Verified" : "✗ Unverified"}
                             </span>
                             <span
-                                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                    verification.is_approved
-                                        ? "bg-blue-100 text-blue-700"
-                                        : "bg-gray-100 text-gray-500"
-                                }`}
+                                className={`text-xs px-2 py-0.5 rounded-full font-medium ${verification.is_approved
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-gray-100 text-gray-500"
+                                    }`}
                             >
                                 {verification.is_approved ? "✓ Approved" : "✗ Unapproved"}
                             </span>
                         </div>
                     </div>
 
-                        <div className="text-xs text-gray-400">
+                    <div className="text-xs text-gray-400">
                         <span className="font-medium">User ID: </span>
                         <span className="font-mono">{verification.user}</span>
                     </div>
@@ -246,9 +305,9 @@ function VerificationCard({
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-1 border-t border-gray-100">
                 <button
-                    onClick={() => onReject(verification.id)}
+                    onClick={() => onReject(verification.id, displayName)}
                     disabled={isLoading}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -256,9 +315,9 @@ function VerificationCard({
                     Reject
                 </button>
                 <button
-                    onClick={() => onApprove(verification.id)}
+                    onClick={() => onApprove(verification.id, displayName)}
                     disabled={isLoading}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -271,25 +330,44 @@ function VerificationCard({
 }
 
 export default function ProfessionalVerification() {
-    const { data, isLoading, isError } = useGetPendingVerificationsQuery(undefined);
+    const { data, isLoading, isError, refetch } = useGetPendingVerificationsQuery(undefined);
     const [approveVerification, { isLoading: isApproving }] = useApproveVerificationMutation();
     const [rejectVerification, { isLoading: isRejecting }] = useRejectVerificationMutation();
+    const [confirmState, setConfirmState] = useState<{
+        id: number;
+        action: "approve" | "reject";
+        name: string;
+    } | null>(null);
 
     const isMutating = isApproving || isRejecting;
 
-    const handleApprove = async (id: number) => {
-        try {
-            await approveVerification(id).unwrap();
-        } catch {
-            // handle error (toast, etc.)
-        }
+    const handleApprove = (id: number, name: string) => {
+        setConfirmState({ id, action: "approve", name });
     };
 
-    const handleReject = async (id: number) => {
+    const handleReject = (id: number, name: string) => {
+        setConfirmState({ id, action: "reject", name });
+    };
+
+    const handleConfirm = async () => {
+        if (!confirmState) return;
         try {
-            await rejectVerification(id).unwrap();
+            if (confirmState.action === "approve") {
+                await approveVerification(confirmState.id).unwrap();
+                toast.success("Verification approved.");
+            } else {
+                await rejectVerification(confirmState.id).unwrap();
+                toast.success("Verification rejected.");
+            }
+            await refetch();
         } catch {
-            // handle error (toast, etc.)
+            if (confirmState.action === "approve") {
+                toast.error("Failed to approve verification.");
+            } else {
+                toast.error("Failed to reject verification.");
+            }
+        } finally {
+            setConfirmState(null);
         }
     };
 
@@ -367,6 +445,19 @@ export default function ProfessionalVerification() {
                     </div>
                 )}
             </div>
+            <ConfirmationModal
+                open={!!confirmState}
+                title={confirmState?.action === "reject" ? "Reject verification?" : "Approve verification?"}
+                description={
+                    confirmState
+                        ? `You are about to ${confirmState.action} ${confirmState.name}'s verification. This action cannot be undone.`
+                        : ""
+                }
+                confirmLabel={confirmState?.action === "reject" ? "Yes, reject" : "Yes, approve"}
+                onCancel={() => setConfirmState(null)}
+                onConfirm={handleConfirm}
+                isLoading={isMutating}
+            />
         </div>
     );
 }
