@@ -1,5 +1,48 @@
 "use client";
 import { useState } from "react";
+import { useGetFinancialStatsQuery, useGetFinancialTransactionsQuery, useGetFinancialPendingPayoutsQuery } from "@/redux/features/admin/financial/financialApi";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface FinancialStats {
+    total_revenue: number;
+    total_leads: number;
+    pending_payouts: number;
+    completed_payouts: number;
+    currency: string;
+}
+
+interface Transaction {
+    job_id: string;
+    amount: string;
+    date: string;
+    status: string;
+    type: string;
+    user_name: string | null;
+    user_email: string;
+}
+
+interface TransactionsResponse {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: Transaction[];
+}
+
+interface PendingPayout {
+    full_name: string;
+    email: string;
+    amount: string;
+}
+
+interface PendingPayoutsResponse {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: PendingPayout[];
+}
+
+// ─── Icons ────────────────────────────────────────────────────────────────────
 
 const ArrowUpIcon = () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
@@ -32,25 +75,51 @@ const ExportIcon = () => (
     </svg>
 );
 
-const transactions = [
-    { id: 1, type: "priority service", name: "Sarah Cohen", amount: "+€30", date: "2024-02-15", isCredit: true },
-    { id: 2, type: "priority service", name: "David Levy", amount: "+€30", date: "2024-02-15", isCredit: true },
-    { id: 3, type: "priority service", name: "Rachel Green", amount: "+€30", date: "2024-02-14", isCredit: true },
-    { id: 4, type: "refund", name: "JOB-1198", amount: "€30", date: "2024-02-14", isCredit: false },
-    { id: 5, type: "refund", name: "JOB-1198", amount: "€30", date: "2024-02-14", isCredit: false },
-    { id: 6, type: "priority service", name: "Amit Shapira", amount: "+€30", date: "2024-02-13", isCredit: true },
-    { id: 7, type: "priority service", name: "Noa Ben-David", amount: "+€30", date: "2024-02-13", isCredit: true },
-    { id: 8, type: "priority service", name: "Yossi Klein", amount: "+€30", date: "2024-02-12", isCredit: true },
-];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const pendingPayouts = [
-    { id: 1, name: "Dan Levy", date: "2024-02-14", amount: "$2500" },
-    { id: 2, name: "Miri Shapira", date: "2024-02-14", amount: "$1800" },
-    { id: 3, name: "Amit Levy", date: "2024-02-13", amount: "$3200" },
-];
+function formatAmount(amount: number | string, currency: string): string {
+    const num = typeof amount === "string" ? parseFloat(amount) : amount;
+    if (num >= 1000) return `${currency}${(num / 1000).toFixed(1)}K`;
+    return `${currency}${num.toFixed(0)}`;
+}
+
+function isCredit(type: string): boolean {
+    // "payout" going out is a debit; anything incoming (e.g. "priority service") is credit
+    return type !== "payout";
+}
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+const Skeleton = ({ className }: { className?: string }) => (
+    <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
+);
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function FinancialPanel() {
-    const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+    const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+
+    const {
+        data: stats,
+        isLoading: statsLoading,
+        isError: statsError,
+    } = useGetFinancialStatsQuery<{ data: FinancialStats; isLoading: boolean; isError: boolean }>(undefined);
+
+    const {
+        data: transactionsData,
+        isLoading: txLoading,
+        isError: txError,
+    } = useGetFinancialTransactionsQuery<{ data: TransactionsResponse; isLoading: boolean; isError: boolean }>(undefined);
+
+    const {
+        data: payoutsData,
+        isLoading: payoutsLoading,
+        isError: payoutsError,
+    } = useGetFinancialPendingPayoutsQuery<{ data: PendingPayoutsResponse; isLoading: boolean; isError: boolean }>(undefined);
+
+    const currency = stats?.currency ?? "₪";
+    const transactions = transactionsData?.results ?? [];
+    const pendingPayouts = payoutsData?.results ?? [];
 
     return (
         <div className="min-h-screen p-6 font-sans">
@@ -64,7 +133,15 @@ export default function FinancialPanel() {
                     <div className="bg-amber-400 rounded-2xl p-5 flex items-start justify-between">
                         <div>
                             <p className="text-amber-700 text-xs font-medium mb-2">Total Revenue</p>
-                            <p className="text-white text-2xl font-bold">$ 1245K</p>
+                            {statsLoading ? (
+                                <Skeleton className="h-8 w-24 bg-amber-300" />
+                            ) : statsError ? (
+                                <p className="text-white text-2xl font-bold">—</p>
+                            ) : (
+                                <p className="text-white text-2xl font-bold">
+                                    {formatAmount(stats!.total_revenue, currency)}
+                                </p>
+                            )}
                         </div>
                         <div className="text-white mt-1">
                             <TrendUpIcon />
@@ -75,7 +152,15 @@ export default function FinancialPanel() {
                     <div className="bg-white rounded-2xl p-5 flex items-start justify-between shadow-sm">
                         <div>
                             <p className="text-gray-400 text-xs font-medium mb-2">Total Leads</p>
-                            <p className="text-green-500 text-2xl font-bold">12500</p>
+                            {statsLoading ? (
+                                <Skeleton className="h-8 w-16" />
+                            ) : statsError ? (
+                                <p className="text-green-500 text-2xl font-bold">—</p>
+                            ) : (
+                                <p className="text-green-500 text-2xl font-bold">
+                                    {stats!.total_leads.toLocaleString()}
+                                </p>
+                            )}
                         </div>
                         <div className="text-green-500 mt-1">
                             <TrendUpIcon />
@@ -86,7 +171,15 @@ export default function FinancialPanel() {
                     <div className="bg-white rounded-2xl p-5 flex items-start justify-between shadow-sm">
                         <div>
                             <p className="text-gray-400 text-xs font-medium mb-2">Pending Payouts</p>
-                            <p className="text-amber-500 text-2xl font-bold">$ 45.6K</p>
+                            {statsLoading ? (
+                                <Skeleton className="h-8 w-20" />
+                            ) : statsError ? (
+                                <p className="text-amber-500 text-2xl font-bold">—</p>
+                            ) : (
+                                <p className="text-amber-500 text-2xl font-bold">
+                                    {formatAmount(stats!.pending_payouts, currency)}
+                                </p>
+                            )}
                         </div>
                         <div className="text-amber-500 mt-1">
                             <CardIcon />
@@ -97,7 +190,15 @@ export default function FinancialPanel() {
                     <div className="bg-white rounded-2xl p-5 flex items-start justify-between shadow-sm">
                         <div>
                             <p className="text-gray-400 text-xs font-medium mb-2">Completed Payouts</p>
-                            <p className="text-gray-900 text-2xl font-bold">$ 890K</p>
+                            {statsLoading ? (
+                                <Skeleton className="h-8 w-20" />
+                            ) : statsError ? (
+                                <p className="text-gray-900 text-2xl font-bold">—</p>
+                            ) : (
+                                <p className="text-gray-900 text-2xl font-bold">
+                                    {formatAmount(stats!.completed_payouts, currency)}
+                                </p>
+                            )}
                         </div>
                         <div className="text-gray-400 mt-1">
                             <ArrowUpIcon />
@@ -117,41 +218,64 @@ export default function FinancialPanel() {
                             </button>
                         </div>
 
-                        <div className="space-y-1">
-                            {transactions.map((tx) => (
-                                <div
-                                    key={tx.id}
-                                    className={`flex items-center justify-between py-3 px-2 rounded-xl transition-colors cursor-pointer ${hoveredRow === tx.id ? "bg-gray-50" : ""
-                                        }`}
-                                    onMouseEnter={() => setHoveredRow(tx.id)}
-                                    onMouseLeave={() => setHoveredRow(null)}
-                                >
-                                    <div className="flex items-center gap-3">
+                        {txLoading ? (
+                            <div className="space-y-3">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={i} className="flex items-center justify-between py-2 px-2">
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="w-9 h-9 rounded-full" />
+                                            <div className="space-y-1.5">
+                                                <Skeleton className="h-3 w-24" />
+                                                <Skeleton className="h-3 w-32" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5 text-right">
+                                            <Skeleton className="h-3 w-12 ml-auto" />
+                                            <Skeleton className="h-3 w-16 ml-auto" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : txError ? (
+                            <p className="text-xs text-red-400 text-center py-6">Failed to load transactions.</p>
+                        ) : transactions.length === 0 ? (
+                            <p className="text-xs text-gray-400 text-center py-6">No transactions found.</p>
+                        ) : (
+                            <div className="space-y-1">
+                                {transactions.map((tx) => {
+                                    const credit = isCredit(tx.type);
+                                    const displayName = tx.user_name ?? tx.user_email;
+                                    return (
                                         <div
-                                            className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${tx.isCredit
-                                                ? "bg-blue-50 text-blue-400"
-                                                : "bg-red-50 text-red-400"
+                                            key={`${tx.job_id}-${tx.date}-${tx.type}-${tx.user_email}`}
+                                            className={`flex items-center justify-between py-3 px-2 rounded-xl transition-colors cursor-pointer ${hoveredRow === tx.job_id ? "bg-gray-50" : ""
                                                 }`}
+                                            onMouseEnter={() => setHoveredRow(tx.job_id)}
+                                            onMouseLeave={() => setHoveredRow(null)}
                                         >
-                                            {tx.isCredit ? <ArrowUpIcon /> : <ArrowDownIcon />}
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${credit ? "bg-blue-50 text-blue-400" : "bg-red-50 text-red-400"
+                                                        }`}
+                                                >
+                                                    {credit ? <ArrowUpIcon /> : <ArrowDownIcon />}
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-medium text-gray-800 capitalize">{tx.type}</p>
+                                                    <p className="text-xs text-gray-400">{displayName}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className={`text-xs font-semibold ${credit ? "text-green-500" : "text-red-500"}`}>
+                                                    {credit ? "+" : "-"}{currency}{parseFloat(tx.amount).toFixed(2)}
+                                                </p>
+                                                <p className="text-xs text-gray-400">{tx.date}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-xs font-medium text-gray-800">{tx.type}</p>
-                                            <p className="text-xs text-gray-400">{tx.name}</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p
-                                            className={`text-xs font-semibold ${tx.isCredit ? "text-green-500" : "text-red-500"
-                                                }`}
-                                        >
-                                            {tx.amount}
-                                        </p>
-                                        <p className="text-xs text-gray-400">{tx.date}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
                     {/* Pending Payouts */}
@@ -159,31 +283,57 @@ export default function FinancialPanel() {
                         <div className="flex items-center justify-between mb-5">
                             <h2 className="text-sm font-bold text-gray-900">Pending Payouts</h2>
                             <span className="bg-amber-400 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                                3
+                                {payoutsLoading ? "·" : (payoutsData?.count ?? 0)}
                             </span>
                         </div>
 
-                        <div className="space-y-5">
-                            {pendingPayouts.map((p, i) => (
-                                <div key={p.id}>
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-900">{p.name}</p>
-                                            <p className="text-xs text-gray-400 mt-0.5">{p.date}</p>
+                        {payoutsLoading ? (
+                            <div className="space-y-5">
+                                {Array.from({ length: 3 }).map((_, i) => (
+                                    <div key={i}>
+                                        <div className="flex items-start justify-between">
+                                            <div className="space-y-1.5">
+                                                <Skeleton className="h-4 w-28" />
+                                                <Skeleton className="h-3 w-36" />
+                                            </div>
+                                            <div className="space-y-1.5 text-right">
+                                                <Skeleton className="h-4 w-16 ml-auto" />
+                                                <Skeleton className="h-3 w-12 ml-auto" />
+                                            </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-bold text-amber-500">{p.amount}</p>
-                                            <button className="text-xs text-blue-500 hover:text-blue-700 transition-colors mt-0.5">
-                                                Process
-                                            </button>
-                                        </div>
+                                        {i < 2 && <div className="border-b border-gray-100 mt-5" />}
                                     </div>
-                                    {i < pendingPayouts.length - 1 && (
-                                        <div className="border-b border-gray-100 mt-5" />
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        ) : payoutsError ? (
+                            <p className="text-xs text-red-400 text-center py-6">Failed to load payouts.</p>
+                        ) : pendingPayouts.length === 0 ? (
+                            <p className="text-xs text-gray-400 text-center py-6">No pending payouts.</p>
+                        ) : (
+                            <div className="space-y-5">
+                                {pendingPayouts.map((p, i) => (
+                                    <div key={p.email}>
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-900">{p.full_name}</p>
+                                                <p className="text-xs text-gray-400 mt-0.5">{p.email}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-amber-500">
+                                                    {currency}{parseFloat(p.amount).toFixed(2)}
+                                                </p>
+                                                <button className="text-xs text-blue-500 hover:text-blue-700 transition-colors mt-0.5">
+                                                    Process
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {i < pendingPayouts.length - 1 && (
+                                            <div className="border-b border-gray-100 mt-5" />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
