@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { toast } from "sonner";
+import { useGetAllAnnouncementsQuery, useSendAnnouncementMutation } from "@/redux/features/admin/notifications/notificationsApi";
 
 interface AutoTrigger {
     id: number;
@@ -12,10 +14,16 @@ interface Announcement {
     id: number;
     title: string;
     message: string;
-    audience: string;
-    time: string;
-    status: "Sent" | "Pending";
+    target_audience: "ALL_USERS" | "ALL_PROFESSIONALS" | "ALL_CUSTOMERS";
+    created_at: string;
+    sent_at: string;
 }
+
+const audienceLabel: Record<string, string> = {
+    ALL_USERS: "All Users",
+    ALL_PROFESSIONALS: "All Professionals",
+    ALL_CUSTOMERS: "All Customers",
+};
 
 const initialTriggers: AutoTrigger[] = [
     { id: 1, label: "New Lead Available", target: "Professionals", enabled: true },
@@ -24,25 +32,25 @@ const initialTriggers: AutoTrigger[] = [
     { id: 4, label: "Subscription Expiring", target: "Professionals", enabled: true },
 ];
 
-const initialAnnouncements: Announcement[] = [
-    { id: 1, title: "System Maintenance Update", message: "Scheduled maintenance for tonight at 2 AM...", audience: "All Users", time: "2 hours ago", status: "Sent" },
-    { id: 2, title: "System Maintenance Update", message: "Scheduled maintenance for tonight at 2 AM...", audience: "All Users", time: "2 hours ago", status: "Sent" },
-    { id: 3, title: "System Maintenance Update", message: "Scheduled maintenance for tonight at 2 AM...", audience: "All Users", time: "2 hours ago", status: "Sent" },
-];
-
 function Toggle({ enabled, onChange }: { enabled: boolean; onChange: () => void }) {
     return (
         <button
             onClick={onChange}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${enabled ? "bg-green-500" : "bg-gray-300"
-                }`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${enabled ? "bg-green-500" : "bg-gray-300"}`}
         >
             <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${enabled ? "translate-x-6" : "translate-x-1"
-                    }`}
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${enabled ? "translate-x-6" : "translate-x-1"}`}
             />
         </button>
     );
+}
+
+function timeAgo(dateStr: string): string {
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (diff < 60) return "Just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
 }
 
 export default function PushNotifications() {
@@ -51,34 +59,46 @@ export default function PushNotifications() {
     const [allProfessionals, setAllProfessionals] = useState(true);
     const [allCustomers, setAllCustomers] = useState(true);
     const [triggers, setTriggers] = useState<AutoTrigger[]>(initialTriggers);
-    const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements);
+
+    const {
+        data: announcements = [],
+        isLoading: isLoadingAnnouncements,
+        refetch: refetchAnnouncements,
+    } = useGetAllAnnouncementsQuery(undefined);
+    const [sendAnnouncement, { isLoading: isSending }] = useSendAnnouncementMutation();
 
     const toggleTrigger = (id: number) => {
-        setTriggers((prev) =>
-            prev.map((t) => (t.id === id ? { ...t, enabled: !t.enabled } : t))
-        );
+        setTriggers((prev) => prev.map((t) => (t.id === id ? { ...t, enabled: !t.enabled } : t)));
     };
 
     const deleteTrigger = (id: number) => {
         setTriggers((prev) => prev.filter((t) => t.id !== id));
     };
 
-    const handleSend = () => {
+    const getTargetAudience = (): "ALL_USERS" | "ALL_PROFESSIONALS" | "ALL_CUSTOMERS" => {
+        if (allProfessionals && allCustomers) return "ALL_USERS";
+        if (allProfessionals) return "ALL_PROFESSIONALS";
+        return "ALL_CUSTOMERS";
+    };
+
+    const handleSend = async () => {
         if (!title.trim() || !message.trim()) return;
-        const audiences = [];
-        if (allProfessionals) audiences.push("All Professionals");
-        if (allCustomers) audiences.push("All Customers");
-        const newAnnouncement: Announcement = {
-            id: Date.now(),
-            title,
-            message: message.length > 40 ? message.slice(0, 40) + "..." : message,
-            audience: audiences.join(", ") || "None",
-            time: "Just now",
-            status: "Sent",
-        };
-        setAnnouncements((prev) => [newAnnouncement, ...prev]);
-        setTitle("");
-        setMessage("");
+        if (!allProfessionals && !allCustomers) return;
+
+        try {
+            await sendAnnouncement({
+                title,
+                message,
+                target_audience: getTargetAudience(),
+            }).unwrap();
+
+            setTitle("");
+            setMessage("");
+            refetchAnnouncements();
+            toast.success("Notification sent successfully.");
+        } catch (error) {
+            toast.error("Failed to send notification.");
+        }
     };
 
     return (
@@ -122,15 +142,11 @@ export default function PushNotifications() {
                             <div className="grid grid-cols-2 gap-3">
                                 {/* All Professionals */}
                                 <div
-                                    className={`flex items-center justify-between border rounded-xl px-4 py-3 cursor-pointer transition-colors ${allProfessionals ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white"
-                                        }`}
+                                    className={`flex items-center justify-between border rounded-xl px-4 py-3 cursor-pointer transition-colors ${allProfessionals ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white"}`}
                                     onClick={() => setAllProfessionals(!allProfessionals)}
                                 >
                                     <div className="flex items-center gap-2">
-                                        <div
-                                            className={`w-4 h-4 rounded flex items-center justify-center border ${allProfessionals ? "bg-blue-500 border-blue-500" : "border-gray-300"
-                                                }`}
-                                        >
+                                        <div className={`w-4 h-4 rounded flex items-center justify-center border ${allProfessionals ? "bg-blue-500 border-blue-500" : "border-gray-300"}`}>
                                             {allProfessionals && (
                                                 <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
                                                     <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -149,15 +165,11 @@ export default function PushNotifications() {
 
                                 {/* All Customers */}
                                 <div
-                                    className={`flex items-center justify-between border rounded-xl px-4 py-3 cursor-pointer transition-colors ${allCustomers ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white"
-                                        }`}
+                                    className={`flex items-center justify-between border rounded-xl px-4 py-3 cursor-pointer transition-colors ${allCustomers ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white"}`}
                                     onClick={() => setAllCustomers(!allCustomers)}
                                 >
                                     <div className="flex items-center gap-2">
-                                        <div
-                                            className={`w-4 h-4 rounded flex items-center justify-center border ${allCustomers ? "bg-blue-500 border-blue-500" : "border-gray-300"
-                                                }`}
-                                        >
+                                        <div className={`w-4 h-4 rounded flex items-center justify-center border ${allCustomers ? "bg-blue-500 border-blue-500" : "border-gray-300"}`}>
                                             {allCustomers && (
                                                 <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
                                                     <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -178,32 +190,48 @@ export default function PushNotifications() {
 
                         <button
                             onClick={handleSend}
-                            className="w-full bg-yellow-400 hover:bg-yellow-500 transition-colors text-white font-semibold py-3 rounded-xl text-sm"
+                            disabled={isSending || !title.trim() || !message.trim() || (!allProfessionals && !allCustomers)}
+                            className="w-full bg-yellow-400 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white font-semibold py-3 rounded-xl text-sm cursor-pointer"
                         >
-                            Send Notification
+                            {isSending ? "Sending..." : "Send Notification"}
                         </button>
                     </div>
 
                     {/* Recent Announcements */}
                     <div className="bg-white rounded-2xl p-6 shadow-sm">
                         <h2 className="font-semibold text-gray-900 text-base mb-4">Recent Announcements</h2>
-                        <div className="flex flex-col divide-y divide-gray-100">
-                            {announcements.map((ann) => (
-                                <div key={ann.id} className="py-4 flex items-start justify-between">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-gray-800">{ann.title}</p>
-                                        <p className="text-xs text-gray-500 mt-0.5 truncate">{ann.message}</p>
-                                        <div className="flex items-center gap-2 mt-1.5">
-                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{ann.audience}</span>
-                                            <span className="text-xs text-gray-400">{ann.time}</span>
-                                        </div>
+
+                        {isLoadingAnnouncements ? (
+                            <div className="flex flex-col gap-3">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="py-4 animate-pulse">
+                                        <div className="h-3.5 bg-gray-100 rounded w-1/3 mb-2" />
+                                        <div className="h-3 bg-gray-100 rounded w-2/3 mb-2" />
+                                        <div className="h-3 bg-gray-100 rounded w-1/4" />
                                     </div>
-                                    <span className="ml-4 mt-0.5 text-xs font-medium text-green-600 border border-green-200 bg-green-50 px-2.5 py-1 rounded-full whitespace-nowrap">
-                                        {ann.status}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col divide-y divide-gray-100">
+                                {announcements.map((ann: Announcement) => (
+                                    <div key={ann.id} className="py-4 flex items-start justify-between">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-gray-800">{ann.title}</p>
+                                            <p className="text-xs text-gray-500 mt-0.5 truncate">{ann.message}</p>
+                                            <div className="flex items-center gap-2 mt-1.5">
+                                                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                    {audienceLabel[ann.target_audience] ?? ann.target_audience}
+                                                </span>
+                                                <span className="text-xs text-gray-400">{timeAgo(ann.sent_at)}</span>
+                                            </div>
+                                        </div>
+                                        <span className="ml-4 mt-0.5 text-xs font-medium text-green-600 border border-green-200 bg-green-50 px-2.5 py-1 rounded-full whitespace-nowrap">
+                                            Sent
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 
