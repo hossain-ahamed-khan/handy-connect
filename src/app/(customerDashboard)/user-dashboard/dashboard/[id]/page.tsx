@@ -1,25 +1,15 @@
 "use client";
 
-import {
-  Button,
-  Form,
-  Input,
-  message,
-  Modal,
-  Progress,
-  Switch,
-  Upload,
-} from "antd";
+import { Button, Form, Input, message, Spin, Switch, Upload } from "antd";
 import type { UploadProps } from "antd";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   LuArrowRight,
   LuCalculator,
-  LuCheck,
   LuFileSearch,
+  LuMapPin,
   LuScan,
-  LuSparkles,
   LuUpload,
   LuUserCheck,
 } from "react-icons/lu";
@@ -28,7 +18,6 @@ import {
   useAiDiagnosisQuery,
   useFinalRequestSubmissionMutation,
   useInitiateServiceRequestMutation,
-  useProcessAiDiagnosisMutation,
   useUploadMediaMutation,
 } from "@/redux/features/customer/serviceRequest/serviceRequestApi";
 import AIDiagnosis, {
@@ -98,26 +87,44 @@ export default function ServiceDetails() {
   const [form] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loadingStep, setLoadingStep] = useState(1);
   const [serviceRequest, setServiceRequest] =
     useState<ServiceRequestResponse | null>(null);
   const [aiResult, setAiResult] = useState<AiDiagnosisResponse | null>(null);
   const [aiRequestId, setAiRequestId] = useState<number | null>(null);
   const [zipCode, setZipCode] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [markAsPriority, setMarkAsPriority] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
+  const [locationError, setLocationError] = useState(false);
+  const [pollingActive, setPollingActive] = useState(false);
 
   const [initiateServiceRequest] = useInitiateServiceRequestMutation();
   const [uploadMedia] = useUploadMediaMutation();
   const [finalRequestSubmission, { isLoading: isSubmitting }] =
     useFinalRequestSubmissionMutation();
-  const [processAiDiagnosis, { isLoading: isProcessingAi }] =
-    useProcessAiDiagnosisMutation();
-  const { data: aiResultData, isLoading: isDiagnosing } = useAiDiagnosisQuery(
-    aiRequestId ? { requestId: aiRequestId } : skipToken
+
+  const { data: aiResultData } = useAiDiagnosisQuery(
+    aiRequestId ? { requestId: aiRequestId } : skipToken,
+    { pollingInterval: pollingActive ? 5000 : 0 }
   );
 
   const serviceDetails = serviceRequest?.service_details ?? null;
+
+  // Auto-fetch geolocation on mount
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationError(true);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {
+        setLocationError(true);
+      }
+    );
+  }, []);
 
   useEffect(() => {
     const serviceId = Number(id) || 1;
@@ -132,14 +139,19 @@ export default function ServiceDetails() {
   }, [id, initiateServiceRequest]);
 
   useEffect(() => {
-    form.setFieldsValue({
-      category: serviceDetails?.name_en || "N/A",
-    });
+    form.setFieldsValue({ category: serviceDetails?.name_en || "N/A" });
   }, [form, serviceDetails?.name_en]);
 
   useEffect(() => {
-    if (aiResultData) {
+    if (aiResultData?.status === "completed") {
       setAiResult(aiResultData as AiDiagnosisResponse);
+    }
+  }, [aiResultData]);
+
+  // Polling: RTK Query handles refetching every 5s while active
+  useEffect(() => {
+    if (aiResultData?.status === "completed") {
+      setPollingActive(false);
     }
   }, [aiResultData]);
 
@@ -150,42 +162,32 @@ export default function ServiceDetails() {
     }
 
     setAiResult(null);
-    setIsModalOpen(true);
-    setLoadingStep(1);
-
-    const stepIntervalMs = 3750;
-    const timers = [1, 2, 3, 4].map((step) =>
-      setTimeout(() => setLoadingStep(step), step * stepIntervalMs)
-    );
 
     try {
       const payload = {
         description: form.getFieldValue("description")?.trim() || "pipe broken",
+        lat: coords.lat,
+        lng: coords.lng,
         address: "Dhaka",
         zip_code: zipCode ? Number(zipCode) : 1212,
-        phone_number: null,
+        phone_number: phoneNumber || null,
         no_call_just_chat: true,
         mark_as_priority: markAsPriority,
         status: "PENDING",
       };
+
+      console.log("Submitting request with payload:", payload);
 
       const finalResponse = await finalRequestSubmission({
         requestId: serviceRequest.id,
         formData: payload,
       }).unwrap();
 
-      await processAiDiagnosis({ requestId: finalResponse.id }).unwrap();
-
-      await new Promise((resolve) => {
-        setTimeout(resolve, 15000);
-      });
-
       setAiRequestId(finalResponse.id);
+      setPollingActive(true);
     } catch (error) {
+      console.error("Failed to submit request or run AI diagnosis.", error);
       messageApi.error("Failed to submit request or run AI diagnosis.");
-    } finally {
-      timers.forEach((timer) => clearTimeout(timer));
-      setIsModalOpen(false);
     }
   };
 
@@ -219,16 +221,56 @@ export default function ServiceDetails() {
     }
   };
 
-  if (aiResult || isDiagnosing) {
+  if (aiResult && aiResultData?.status === "completed") {
     return (
       <>
         {contextHolder}
         <AIDiagnosis
           result={aiResult}
-          isLoading={isDiagnosing}
+          isLoading={false}
           requestId={aiRequestId}
           onBack={() => setAiResult(null)}
         />
+      </>
+    );
+  }
+
+  const isAiLoading = pollingActive && aiResultData?.status !== "completed";
+
+  if (isAiLoading) {
+    return (
+      <>
+        {contextHolder}
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <p className="text-sm font-bold text-gray-900">
+                Analyzing your request
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                This usually takes under a minute.
+              </p>
+            </div>
+            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+              AI Processing
+            </span>
+          </div>
+          <div className="flex items-center justify-center py-6">
+            <Spin size="large" />
+          </div>
+          <div className="mt-8 space-y-5">
+            {steps.map((step) => (
+              <div key={step.id} className="flex items-center gap-4">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  {step.icon}
+                </div>
+                <p className="text-sm font-semibold text-gray-700">
+                  {step.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       </>
     );
   }
@@ -314,8 +356,46 @@ export default function ServiceDetails() {
                   size="large"
                   className="h-12 rounded-xl bg-gray-50 border-gray-100"
                   value={zipCode}
-                  onChange={(event) => setZipCode(event.target.value)}
+                  onChange={(e) => setZipCode(e.target.value)}
                 />
+              </div>
+
+              <div>
+                <p className="font-bold text-gray-600 text-sm mb-3">
+                  Phone Number
+                </p>
+                <Input
+                  placeholder="e.g. +49 123 456789"
+                  size="large"
+                  className="h-12 rounded-xl bg-gray-50 border-gray-100"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                />
+              </div>
+
+              {/* Geolocation display */}
+              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <div className="p-2 bg-blue-50 text-blue-500 rounded-xl">
+                  <LuMapPin size={18} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-gray-700 text-sm">
+                    Your Location
+                  </p>
+                  {coords.lat && coords.lng ? (
+                    <p className="text-xs text-gray-400 font-medium mt-0.5">
+                      {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+                    </p>
+                  ) : locationError ? (
+                    <p className="text-xs text-red-400 font-medium mt-0.5">
+                      Location access denied — coordinates will not be sent
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-400 font-medium mt-0.5 animate-pulse">
+                      Fetching location…
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
@@ -356,9 +436,17 @@ export default function ServiceDetails() {
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-400 font-medium">Urgency</span>
                 <span className="font-bold text-gray-900 bg-gray-100 px-3 py-1 rounded-lg">
-                  Standard
+                  {markAsPriority ? "Emergency" : "Standard"}
                 </span>
               </div>
+              {coords.lat && coords.lng && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-400 font-medium">Location</span>
+                  <span className="font-bold bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs">
+                    GPS detected
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="bg-orange-50/50 p-6 rounded-2xl mb-8 border border-orange-100/50">
@@ -386,7 +474,7 @@ export default function ServiceDetails() {
             <Button
               block
               onClick={handleSendRequest}
-              loading={isSubmitting || isProcessingAi || isDiagnosing}
+              loading={isSubmitting || pollingActive}
               disabled={!serviceRequest?.id}
               className="h-24 bg-[#F59E0B] text-white border-none font-bold text-2xl rounded-2xl flex items-center justify-center gap-2 shadow-xl transition-all hover:-translate-y-1 active:scale-95"
             >
@@ -399,90 +487,6 @@ export default function ServiceDetails() {
           </div>
         </div>
       </div>
-
-      {/* Analysis Modal */}
-      <Modal
-        open={isModalOpen}
-        footer={null}
-        closable={false}
-        centered
-        width={520}
-      >
-        <div className="space-y-8">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-[#FFF7E8] text-[#F59E0B] rounded-2xl flex items-center justify-center shadow-inner">
-              <LuSparkles size={28} className="animate-spin-slow" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-black text-gray-900 tracking-tight">
-                Analyzing Issue
-              </h2>
-              <p className="text-gray-400 text-sm mt-1 font-bold">
-                Step {loadingStep} of 4
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Progress
-              percent={loadingStep * 25}
-              showInfo={false}
-              strokeColor="#F59E0B"
-              railColor="#EEF2F6"
-              size={{ height: 8 }}
-              className="m-0"
-            />
-            <div className="flex justify-between px-1">
-              {[1, 2, 3, 4].map((dot) => (
-                <div
-                  key={dot}
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${loadingStep >= dot ? "bg-[#F59E0B]" : "bg-[#E2E8F0]"
-                    }`}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="flex gap-4 items-center bg-blue-50/40 p-5 rounded-3xl border border-blue-50">
-            <div className="p-3 bg-white text-blue-500 rounded-2xl shadow-sm">
-              <LuScan size={24} className="animate-pulse" />
-            </div>
-            <div>
-              <p className="font-black text-gray-900 text-lg">
-                Scanning uploaded media...
-              </p>
-              <p className="text-gray-500 text-sm font-medium">
-                Processing images and identifying visual patterns.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-[#F8FAFC] rounded-3xl p-6 space-y-5 border border-gray-100">
-            {steps.map((step) => (
-              <div key={step.id} className="flex items-center gap-4">
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${loadingStep >= step.id
-                    ? "bg-[#F59E0B] text-white shadow-md shadow-orange-100"
-                    : "bg-white text-gray-300 border border-gray-200"
-                    }`}
-                >
-                  {loadingStep > step.id ? (
-                    <LuCheck size={18} />
-                  ) : (
-                    step.icon
-                  )}
-                </div>
-                <p
-                  className={`font-bold text-sm transition-colors ${loadingStep >= step.id ? "text-gray-800" : "text-gray-300"
-                    }`}
-                >
-                  {step.label}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Modal>
     </>
   );
 }

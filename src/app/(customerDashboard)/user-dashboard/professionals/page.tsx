@@ -97,7 +97,7 @@ export default function Professionals() {
                       {pro.profile_photo ? (
                         <Image
                           src={pro.profile_photo}
-                          alt={pro.full_name}
+                          alt={pro.full_name || "Professional profile photo"}
                           width={64}
                           height={64}
                           className="w-full h-full object-cover"

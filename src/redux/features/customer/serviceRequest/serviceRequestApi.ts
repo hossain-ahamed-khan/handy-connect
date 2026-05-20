@@ -54,23 +54,6 @@ export const { useFinalRequestSubmissionMutation } = finalRequestSubmissionApi;
 
 
 
-const processAiDiagonosisApi = baseApi.injectEndpoints({
-    endpoints: (builder) => ({
-        processAiDiagnosis: builder.mutation({
-            query: ({ requestId }) => ({
-                url: '/api/ai/process/',
-                method: 'POST',
-                body: { request_id: requestId }
-            })
-        }),
-    })
-})
-
-export const { useProcessAiDiagnosisMutation } = processAiDiagonosisApi;
-
-
-
-
 
 const aiDiagonosisApi = baseApi.injectEndpoints({
     endpoints: (builder) => ({

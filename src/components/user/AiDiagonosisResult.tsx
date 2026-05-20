@@ -281,7 +281,7 @@ export default function AIDiagnosis({ result, isLoading, requestId, onBack }: AI
                                 </p>
 
                                 {offerMessage && (
-                                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+                                    <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
                                         {offerMessage}
                                     </div>
                                 )}
@@ -322,7 +322,7 @@ export default function AIDiagnosis({ result, isLoading, requestId, onBack }: AI
                                                         {provider.profile_photo ? (
                                                             <Image
                                                                 src={provider.profile_photo}
-                                                                alt={provider.full_name}
+                                                                alt={provider.full_name || "Provider profile photo"}
                                                                 width={44}
                                                                 height={44}
                                                                 className="h-full w-full object-cover"
