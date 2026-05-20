@@ -1,8 +1,9 @@
 "use client";
 import Image from "next/image";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useOnboardingMutation } from "@/redux/features/professional/onboarding/onboardingApi";
+import { useGetCategoriesQuery } from "@/redux/features/admin/categories/categoriesApi";
 import { toast } from "sonner";
 
 // Icons
@@ -12,54 +13,6 @@ const CheckIcon = () => (
   </svg>
 );
 
-const DropletIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-  </svg>
-);
-
-const BoltIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-  </svg>
-);
-
-const SnowflakeIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <line x1="12" y1="2" x2="12" y2="22" />
-    <line x1="2" y1="12" x2="22" y2="12" />
-    <polyline points="17 7 12 2 7 7" />
-    <polyline points="7 17 12 22 17 17" />
-    <polyline points="2 7 7 12 2 17" />
-    <polyline points="22 17 17 12 22 7" />
-  </svg>
-);
-
-const PaletteIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#a855f7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <circle cx="13.5" cy="6.5" r="0.5" fill="#a855f7" />
-    <circle cx="17.5" cy="10.5" r="0.5" fill="#a855f7" />
-    <circle cx="8.5" cy="7.5" r="0.5" fill="#a855f7" />
-    <circle cx="6.5" cy="12.5" r="0.5" fill="#a855f7" />
-    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.667 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.042a1.65 1.65 0 0 1 1.648-1.667H16c3.313 0 6-2.687 6-6C22 6.18 17.5 2 12 2z" />
-  </svg>
-);
-
-const TruckIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <rect x="1" y="3" width="15" height="13" />
-    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-    <circle cx="5.5" cy="18.5" r="2.5" />
-    <circle cx="18.5" cy="18.5" r="2.5" />
-  </svg>
-);
-
-const LeafIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
-    <path d="M17 8C8 10 5.9 16.17 3.82 19.34" />
-    <path d="M2 2s3 1 7 6c4 5 4 10 4 10S10 10 2 2z" />
-  </svg>
-);
 
 const DocIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
@@ -136,6 +89,15 @@ interface UploadedFile {
   size: number;
   file: File;
   preview?: string;
+}
+
+interface CategoryItem {
+  id: number;
+  name_en: string;
+  name_de: string;
+  icon: string;
+  color: string;
+  is_active: boolean;
 }
 
 // ─── File Upload Row ──────────────────────────────────────────────────────────
@@ -388,32 +350,36 @@ const Step2 = ({
 const Step3 = ({
   onNext,
   onBack,
-  selectedService,
-  setSelectedService,
+  selectedServices,
+  setSelectedServices,
   radius,
   setRadius,
+  lat,
+  setLat,
+  lng,
+  setLng,
   isSubmitting,
+  categories,
+  isLoading,
 }: {
   onNext: () => void;
   onBack: () => void;
-  selectedService: string | null;
-  setSelectedService: Dispatch<SetStateAction<string | null>>;
+  selectedServices: number[];
+  setSelectedServices: Dispatch<SetStateAction<number[]>>;
   radius: number;
   setRadius: Dispatch<SetStateAction<number>>;
+  lat: string;
+  setLat: Dispatch<SetStateAction<string>>;
+  lng: string;
+  setLng: Dispatch<SetStateAction<string>>;
   isSubmitting: boolean;
+  categories: CategoryItem[];
+  isLoading: boolean;
 }) => {
-
-  const categories = [
-    { key: "1", label: "Plumbing", icon: <DropletIcon /> },
-    { key: "2", label: "Electrical", icon: <BoltIcon /> },
-    { key: "3", label: "AC & HVAC", icon: <SnowflakeIcon /> },
-    { key: "4", label: "Painting", icon: <PaletteIcon /> },
-    { key: "5", label: "Moving", icon: <TruckIcon /> },
-    { key: "6", label: "Gardening", icon: <LeafIcon /> },
-  ];
-
-  const toggle = (key: string) =>
-    setSelectedService((prev) => (prev === key ? null : key));
+  const toggle = (id: number) =>
+    setSelectedServices((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
 
   return (
     <div className="flex flex-col flex-1 px-7 py-6 overflow-auto">
@@ -430,18 +396,31 @@ const Step3 = ({
       <p className="text-xs text-gray-400 mb-6">Tell us what services you offer</p>
 
       <h4 className="text-sm font-bold text-gray-800 mb-3">Select Categories</h4>
-      <div className="grid grid-cols-3 gap-3 mb-7">
-        {categories.map((cat) => (
+      <div className="grid grid-cols-3 gap-2 mb-7">
+        {isLoading && (
+          <div className="col-span-3 text-xs text-gray-400">Loading categories...</div>
+        )}
+        {!isLoading && categories.length === 0 && (
+          <div className="col-span-3 text-xs text-gray-400">No categories available.</div>
+        )}
+        {!isLoading && categories.map((cat) => (
           <button
-            key={cat.key}
-            onClick={() => toggle(cat.key)}
-            className={`flex flex-col items-center justify-center gap-2 py-5 rounded-2xl border-2 transition-all duration-200 cursor-pointer
-              ${selectedService === cat.key
+            key={cat.id}
+            onClick={() => toggle(cat.id)}
+            className={`flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-all duration-200 cursor-pointer
+              ${selectedServices.includes(cat.id)
                 ? "border-amber-400 bg-amber-50"
                 : "border-gray-100 bg-white hover:border-gray-200"}`}
           >
-            {cat.icon}
-            <span className="text-xs font-medium text-gray-700">{cat.label}</span>
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-base"
+              style={{ backgroundColor: `${cat.color}1a`, color: cat.color }}
+            >
+              {cat.icon}
+            </div>
+            <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">
+              {cat.name_en}
+            </span>
           </button>
         ))}
       </div>
@@ -474,11 +453,35 @@ const Step3 = ({
           <span>15 km</span>
           <span>20 km</span>
         </div>
+
+        <div className="mt-5">
+          <p className="text-xs text-gray-400 mb-2">Location coordinates (auto-filled when available)</p>
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              placeholder="Latitude"
+              value={lat}
+              onChange={(e) => setLat(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
+            />
+            <input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              placeholder="Longitude"
+              value={lng}
+              onChange={(e) => setLng(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-300"
+            />
+          </div>
+        </div>
       </div>
 
       <button
         onClick={onNext}
-        disabled={isSubmitting || !selectedService}
+        disabled={isSubmitting || selectedServices.length === 0}
         className="mt-auto w-full bg-amber-400 hover:bg-amber-500 disabled:bg-amber-200 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-2xl transition-colors duration-200 text-sm shadow-sm cursor-pointer"
       >
         {isSubmitting ? "Submitting..." : "Submit Application"}
@@ -753,26 +756,51 @@ export default function OnboardingFlow() {
   const [step, setStep] = useState(1);
   const [showDashboard, setShowDashboard] = useState(false);
   const [businessAddress, setBusinessAddress] = useState("");
+  const [lat, setLat] = useState("");
+  const [lng, setLng] = useState("");
   const [files, setFiles] = useState<Record<string, UploadedFile | null>>({
     gov: null,
     cert: null,
     photo: null,
   });
-  const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [selectedServices, setSelectedServices] = useState<number[]>([]);
   const [radius, setRadius] = useState(10);
   const [reviewMessage, setReviewMessage] = useState<string | undefined>(undefined);
   const [onboarding, { isLoading }] = useOnboardingMutation();
+  const { data: categoriesData = [], isLoading: categoriesLoading } = useGetCategoriesQuery({}) as {
+    data?: CategoryItem[];
+    isLoading: boolean;
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (!lat) setLat(String(pos.coords.latitude));
+        if (!lng) setLng(String(pos.coords.longitude));
+      },
+      (error) => {
+        console.warn("Geolocation unavailable", error);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  }, [lat, lng]);
 
   const handleSubmit = async () => {
-    if (!selectedService) return;
+    if (selectedServices.length === 0) return;
     const formData = new FormData();
     formData.append("business_address", businessAddress);
     formData.append("service_radius", String(radius));
-    formData.append("services", selectedService);
+    formData.append("services", JSON.stringify(selectedServices));
     if (files.gov?.file) formData.append("government_id", files.gov.file);
     if (files.cert?.file) formData.append("professional_certificate", files.cert.file);
     if (files.photo?.file) formData.append("profile_photo", files.photo.file);
     formData.append("onboarding_status", "UNDER_REVIEW");
+    if (lat && lng) {
+      formData.append("lat", lat);
+      formData.append("lng", lng);
+    }
 
     try {
       const res = await onboarding(formData).unwrap();
@@ -814,11 +842,17 @@ export default function OnboardingFlow() {
           <Step3
             onNext={handleSubmit}
             onBack={() => setStep(2)}
-            selectedService={selectedService}
-            setSelectedService={setSelectedService}
+            selectedServices={selectedServices}
+            setSelectedServices={setSelectedServices}
             radius={radius}
             setRadius={setRadius}
+            lat={lat}
+            setLat={setLat}
+            lng={lng}
+            setLng={setLng}
             isSubmitting={isLoading}
+            categories={categoriesData.filter((cat) => cat.is_active)}
+            isLoading={categoriesLoading}
           />
         )}
         {step === 4 && <Step4 onNext={() => setStep(5)} onBack={() => setStep(3)} reviewMessage={reviewMessage} />}
