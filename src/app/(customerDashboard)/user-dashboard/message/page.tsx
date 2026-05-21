@@ -71,7 +71,7 @@ export default function Message() {
 
   return (
     // REMOVED items-center justify-center to allow it to fill the parent container
-    <div className="w-full h-[calc(100vh-140px)] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex">
+    <div className="w-full h-[calc(100vh-80px)] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex">
       {/* Sidebar - Increased width to match image proportions */}
       <div className="w-72 border-r border-gray-100 flex flex-col bg-white shrink-0">
         <div className="px-6 py-5 text-xl font-bold text-gray-900">
@@ -82,9 +82,8 @@ export default function Message() {
             <div
               key={conv.id}
               onClick={() => setActiveConv(conv.id)}
-              className={`flex items-center gap-3 px-6 py-4 cursor-pointer transition-colors relative ${
-                conv.id === activeConv ? "bg-orange-50" : "hover:bg-gray-50"
-              }`}
+              className={`flex items-center gap-3 px-6 py-4 cursor-pointer transition-colors relative ${conv.id === activeConv ? "bg-orange-50" : "hover:bg-gray-50"
+                }`}
             >
               {/* Active Indicator Line */}
               {conv.id === activeConv && (
@@ -188,11 +187,10 @@ export default function Message() {
                 className={`max-w-[70%] flex flex-col gap-1.5 ${msg.isMe ? "items-end" : "items-start"}`}
               >
                 <div
-                  className={`px-5 py-3 text-[14px] leading-relaxed shadow-sm ${
-                    msg.isMe
+                  className={`px-5 py-3 text-[14px] leading-relaxed shadow-sm ${msg.isMe
                       ? "bg-orange-500 text-white rounded-2xl rounded-tr-none"
                       : "bg-white text-gray-700 border border-gray-100 rounded-2xl rounded-tl-none"
-                  }`}
+                    }`}
                 >
                   {msg.text}
                 </div>
