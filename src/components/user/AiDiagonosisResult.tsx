@@ -114,7 +114,7 @@ export default function AIDiagnosis({ result, isLoading, requestId, onBack }: AI
         try {
             const response = await sendOffer({
                 requestId,
-                formData: { direct_hire_provider_id: providerId },
+                providerId,
             }).unwrap();
 
             const message = typeof response?.message === "string" ? response.message : "Offer sent.";

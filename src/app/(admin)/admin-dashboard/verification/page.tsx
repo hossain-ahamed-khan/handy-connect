@@ -217,8 +217,12 @@ function VerificationCard({
     const avatarColor = getAvatarColor(verification.id);
     const displayName = verification.full_name ?? verification.email.split("@")[0];
 
+    const isApproved = verification.onboarding_status === "APPROVED";
+
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col gap-5">
+        <div
+            className={`bg-white rounded-2xl border shadow-sm p-6 flex flex-col gap-5 transition-shadow hover:shadow-md ${isApproved ? "border-green-300 ring-1 ring-green-100" : "border-gray-200"}`}
+        >
             <div className="flex gap-6">
                 {/* Left: Info */}
                 <div className="w-52 shrink-0 flex flex-col gap-8">
@@ -372,7 +376,7 @@ export default function ProfessionalVerification() {
     };
 
     const verifications: Verification[] = (data?.results ?? []).filter(
-        (verification: Verification) => !verification.is_verified
+        (verification: Verification) => verification.onboarding_status !== "APPROVED"
     );
 
     return (
