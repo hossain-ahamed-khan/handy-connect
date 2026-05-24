@@ -1,12 +1,14 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
+import { MdClose, MdMessage } from "react-icons/md";
 import { useGetActiveJobsQuery } from "@/redux/features/professional/activeJobs/activeJobsApi";
 import {
   useJobCompleteMutation,
   useJobInProgressMutation,
   useJobOnTheWayMutation,
 } from "@/redux/features/professional/jobProgress/jobProgressApi";
+import Message from "@/app/(professionalDashboard)/professional-dashboard/message/page";
 
 type AiCost = {
   min?: number | string;
@@ -102,6 +104,12 @@ const CircleCheckIcon = () => (
 export default function JobDetailsCard() {
   const [priceRating, setPriceRating] = useState<"good" | "bad">("good");
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+  const [isMessageOpen, setIsMessageOpen] = useState(false);
+  const [messageContext, setMessageContext] = useState<{
+    name?: string | null;
+    role?: string | null;
+    requestId?: number | null;
+  } | null>(null);
   const [jobOverrides, setJobOverrides] = useState<
     Record<number, Partial<ActiveJob>>
   >({});
@@ -328,12 +336,29 @@ export default function JobDetailsCard() {
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                  className="text-xs font-semibold text-amber-600 hover:text-amber-700"
-                >
-                  {isExpanded ? "Collapse" : "Expand"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessageContext({
+                        name: mergedJob.customer_name || "Customer",
+                        role: "Customer",
+                        requestId: job.id,
+                      });
+                      setIsMessageOpen(true);
+                    }}
+                    className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center"
+                    aria-label="Open chat"
+                  >
+                    <MdMessage className="text-base" />
+                  </button>
+                  <button
+                    onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                    className="text-xs font-semibold text-amber-600 hover:text-amber-700"
+                  >
+                    {isExpanded ? "Collapse" : "Expand"}
+                  </button>
+                </div>
               </div>
 
               {isExpanded && (
@@ -539,6 +564,33 @@ export default function JobDetailsCard() {
           );
         })}
       </div>
+      {isMessageOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <button
+            type="button"
+            onClick={() => setIsMessageOpen(false)}
+            className="absolute inset-0 bg-black/40 z-0"
+            aria-label="Close message view"
+          />
+          <div className="relative z-10 ml-auto h-full w-full max-w-3xl bg-white shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setIsMessageOpen(false)}
+              className="absolute right-4 top-4 z-10 h-9 w-9 rounded-full bg-white/90 text-gray-600 shadow flex items-center justify-center hover:bg-white"
+              aria-label="Close message view"
+            >
+              <MdClose className="text-lg" />
+            </button>
+            <div className="h-full overflow-hidden">
+              <Message
+                participantName={messageContext?.name}
+                participantRole={messageContext?.role}
+                requestId={messageContext?.requestId}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
