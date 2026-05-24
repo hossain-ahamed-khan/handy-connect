@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BsCheck2All } from "react-icons/bs";
 import { FiMoreVertical, FiPaperclip, FiSend } from "react-icons/fi";
 import { MdCallEnd } from "react-icons/md";
+import { useAppSelector } from "@/redux/hooks";
+import { selectToken, selectUser } from "@/redux/features/auth/authSlice";
 
 type MessageProps = {
   participantName?: string | null;
   participantRole?: string | null;
   participantInitials?: string | null;
   participantOnline?: boolean | null;
+  requestId?: number | string | null;
 };
 
 type ChatMessage = {
@@ -25,11 +29,18 @@ export default function Message({
   participantRole,
   participantInitials,
   participantOnline,
+  requestId: requestIdProp,
 }: MessageProps) {
   const [inputValue, setInputValue] = useState("");
-  const [isTyping] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "open" | "closed" | "error">("connecting");
-  const [messages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const socketRef = useRef<WebSocket | null>(null);
+  const messageIdRef = useRef(1);
+  const token = useAppSelector(selectToken);
+  const user = useAppSelector(selectUser);
+  const searchParams = useSearchParams();
+  const queryRequestId = searchParams.get("requestId");
+  const requestId = requestIdProp ?? queryRequestId;
 
   const initials = useMemo(() => {
     if (participantInitials && participantInitials.trim()) {
@@ -47,17 +58,64 @@ export default function Message({
   }, [participantInitials, participantName]);
 
   useEffect(() => {
-    const socketUrl = "ws://handyapi.dsrt321.online/ws/chat/5/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzgwMTk1Mzc4LCJpYXQiOjE3Nzk1OTA1NzgsImp0aSI6IjIyZTEyYWMzYTk1NjQ3MWNiMTRkODZlOTY2OGFlZWFiIiwidXNlcl9pZCI6IjIifQ.vXPoQ6IuVlWBzyCXwf_JNlSunuoEWfTF1qp-RioCFGI";
+    if (!token || !requestId) {
+      setConnectionStatus("closed");
+      return;
+    }
+
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    const wsBaseUrl = apiBaseUrl
+      ? apiBaseUrl.replace(/^http/, "ws").replace(/\/$/, "")
+      : "ws://handyapi.dsrt321.online";
+    const socketUrl = `${wsBaseUrl}/ws/chat/${requestId}/?token=${token}`;
+
+    setConnectionStatus("connecting");
     const socket = new WebSocket(socketUrl);
+    socketRef.current = socket;
 
     socket.addEventListener("open", () => setConnectionStatus("open"));
     socket.addEventListener("close", () => setConnectionStatus("closed"));
     socket.addEventListener("error", () => setConnectionStatus("error"));
+    socket.addEventListener("message", (event) => {
+      try {
+        const payload = JSON.parse(event.data as string) as { message?: string; sender?: string };
+        if (typeof payload?.message !== "string" || payload.message.trim().length === 0) {
+          return;
+        }
+        const messageText = payload.message;
+        const isMe = !!(payload.sender && user?.full_name && payload.sender === user.full_name);
+        const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: messageIdRef.current++,
+            sender: payload.sender ?? "Unknown",
+            text: messageText,
+            time,
+            isMe,
+          },
+        ]);
+      } catch {
+        // Ignore malformed payloads.
+      }
+    });
 
     return () => {
       socket.close();
+      socketRef.current = null;
     };
-  }, []);
+  }, [requestId, token, user?.full_name]);
+
+  const sendMessage = () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socketRef.current.send(JSON.stringify({ message: trimmed }));
+    setInputValue("");
+  };
 
   return (
     <div className="w-full h-[calc(100vh-80px)] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex">
@@ -114,10 +172,6 @@ export default function Message({
         <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-6 bg-[#FAFBFC]">
           <div className="flex items-center gap-4 my-2">
             <div className="flex-1 h-px bg-gray-200/60" />
-            <span className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
-              Today
-            </span>
-            <div className="flex-1 h-px bg-gray-200/60" />
           </div>
 
           {messages.length === 0 ? (
@@ -157,18 +211,6 @@ export default function Message({
             ))
           )}
 
-          {isTyping && messages.length > 0 && (
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-orange-400 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                {initials}
-              </div>
-              <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 flex gap-1.5 items-center shadow-sm">
-                <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce" />
-                <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:0.2s]" />
-                <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:0.4s]" />
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Input Footer */}
@@ -181,11 +223,19 @@ export default function Message({
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  sendMessage();
+                }
+              }}
               placeholder="Type your message..."
               className="flex-1 bg-transparent border-none outline-none text-sm text-gray-700 placeholder-gray-400"
             />
             <button
+              type="button"
               className={`${inputValue ? "text-orange-500" : "text-gray-300"} transition-colors`}
+              onClick={sendMessage}
             >
               <FiSend size={20} />
             </button>
