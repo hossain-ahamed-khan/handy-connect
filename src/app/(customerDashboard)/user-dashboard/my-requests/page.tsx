@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { MdBolt, MdOutlinePalette, MdOutlineWaterDrop } from "react-icons/md";
+import { MdBolt, MdClose, MdMessage, MdOutlinePalette, MdOutlineWaterDrop } from "react-icons/md";
 
 import { useGetMyRequestListQuery } from "@/redux/features/customer/myRequestList/myRequestListApi";
 import { useGetServiceStatusQuery } from "@/redux/features/customer/serviceStatus/serviceStatusApi";
+import Message from "@/app/(customerDashboard)/user-dashboard/message/page";
 
 const iconMap = {
   water_drop: MdOutlineWaterDrop,
@@ -44,6 +45,11 @@ type ServiceStatusResponse = {
 export default function MyRequest() {
   const { data, isLoading, isError } = useGetMyRequestListQuery(undefined);
   const [expandedRequestId, setExpandedRequestId] = useState<number | null>(null);
+  const [isMessageOpen, setIsMessageOpen] = useState(false);
+  const [messageContext, setMessageContext] = useState<{
+    name?: string | null;
+    role?: string | null;
+  } | null>(null);
   const { data: serviceStatusData, isFetching: isStatusLoading } =
     useGetServiceStatusQuery(expandedRequestId ?? 0, {
       skip: expandedRequestId === null,
@@ -189,8 +195,17 @@ export default function MyRequest() {
                           </p> */}
                         </div>
                       </div>
-                      <button className="h-9 w-9 rounded-full bg-blue-600 text-white text-xs font-semibold">
-                        Chat
+                      <button
+                        onClick={() => {
+                          setMessageContext({
+                            name: statusData?.provider_name || "Assigned professional",
+                            role: statusData?.service_name || request.service_name || "Professional",
+                          });
+                          setIsMessageOpen(true);
+                        }}
+                        className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center"
+                      >
+                        <MdMessage className="text-base" />
                       </button>
                     </div>
 
@@ -257,6 +272,32 @@ export default function MyRequest() {
               </div>
             );
           })}
+        </div>
+      )}
+      {isMessageOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <button
+            type="button"
+            onClick={() => setIsMessageOpen(false)}
+            className="absolute inset-0 bg-black/40 z-0"
+            aria-label="Close message view"
+          />
+          <div className="relative z-10 ml-auto h-full w-full max-w-3xl bg-white dark:bg-gray-900 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setIsMessageOpen(false)}
+              className="absolute right-4 top-4 z-10 h-9 w-9 rounded-full bg-white/90 text-gray-600 shadow flex items-center justify-center hover:bg-white"
+              aria-label="Close message view"
+            >
+              <MdClose className="text-lg" />
+            </button>
+            <div className="h-full overflow-hidden">
+              <Message
+                participantName={messageContext?.name}
+                participantRole={messageContext?.role}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
