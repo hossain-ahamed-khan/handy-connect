@@ -4,10 +4,10 @@ const jobRequestListApi = baseApi.injectEndpoints({
     endpoints: (builder) => ({
         getJobRequestList: builder.query({
             query: () => ({
-                url: '/api/services/requests/pro/requests/',
+                url: '/api/services/requests/pro/private/',
                 method: 'GET',
             }),
-            providesTags: ['ActiveJobs']
+            providesTags: ['RequestedJobs']
         }),
     })
 })
@@ -26,7 +26,7 @@ const responseToJobRequestApi = baseApi.injectEndpoints({
                 method: 'POST',
                 body: { action }
             }),
-            invalidatesTags: ['ActiveJobs']
+            invalidatesTags: ['RequestedJobs']
         }),
     })
 })

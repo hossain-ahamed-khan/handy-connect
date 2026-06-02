@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   useGetJobRequestListQuery,
   useResponseToJobRequestMutation,
@@ -27,6 +28,7 @@ interface Job {
 interface JobRequestApiItem {
   id: number;
   customer_name: string;
+  service_name?: string;
   service_details?: {
     name_en?: string;
     name_de?: string;
@@ -47,8 +49,7 @@ interface JobRequestApiItem {
 }
 
 interface JobRequestListResponse {
-  active_and_completed?: JobRequestApiItem[];
-  new_leads?: JobRequestApiItem[];
+  results?: JobRequestApiItem[];
 }
 
 const parsePrice = (value?: number | string) => {
@@ -486,6 +487,7 @@ export default function JobList() {
   const { data, isLoading, isError } = useGetJobRequestListQuery(undefined);
   const [respondToJob] = useResponseToJobRequestMutation();
   const [respondingId, setRespondingId] = useState<number | null>(null);
+  const [responseError, setResponseError] = useState<string | null>(null);
   const [jobResponses, setJobResponses] = useState<
     Record<
       number,
@@ -499,17 +501,15 @@ export default function JobList() {
 
   const jobs = useMemo<Job[]>(() => {
     const response = data as JobRequestListResponse | undefined;
-    const combined = [
-      ...(response?.new_leads ?? []),
-      ...(response?.active_and_completed ?? []),
-    ];
+    const results = response?.results ?? [];
 
-    return combined.map((item) => {
+    return results.map((item) => {
       const min = parsePrice(item.ai_cost?.min);
       const max = parsePrice(item.ai_cost?.max);
       const serviceName =
         item.service_details?.name_en ||
         item.service_details?.name_de ||
+        item.service_name ||
         "Service";
       const customerName = item.customer_name || "Customer";
       const initials = customerName
@@ -544,23 +544,46 @@ export default function JobList() {
   const handleRespond = async (job: Job, action: "accept" | "decline") => {
     if (respondingId) return;
     setRespondingId(job.id);
+    setResponseError(null);
     try {
       const response = await respondToJob({
         action,
         requestId: job.id,
       }).unwrap();
 
+      const fallbackMessage =
+        action === "accept" ? "Lead accepted." : "Lead declined.";
+      const successMessage = response?.message || fallbackMessage;
+      toast.success(successMessage);
+
       setJobResponses((prev) => ({
         ...prev,
         [job.id]: {
           status: action === "accept" ? "accepted" : "declined",
-          message:
-            response?.message ||
-            (action === "accept" ? "Lead accepted." : "Lead declined."),
+          message: successMessage,
           isSold: response?.is_sold,
         },
       }));
       setSelectedJob(null);
+    } catch (error) {
+      const fallbackMessage = "Unable to respond to this lead.";
+      if (typeof error === "object" && error !== null) {
+        const maybeError = error as {
+          data?: { error?: string; message?: string };
+          error?: string;
+          message?: string;
+        };
+        const message =
+          maybeError.data?.error ||
+          maybeError.data?.message ||
+          maybeError.error ||
+          maybeError.message;
+        setResponseError(message || fallbackMessage);
+        toast.error(message || fallbackMessage);
+      } else {
+        setResponseError(fallbackMessage);
+        toast.error(fallbackMessage);
+      }
     } finally {
       setRespondingId(null);
     }
@@ -569,6 +592,11 @@ export default function JobList() {
   return (
     <>
       <div className="w-4/5 mx-auto flex flex-col gap-4">
+        {responseError && (
+          <div className="bg-white rounded-2xl border border-red-200 p-5 text-sm text-red-600">
+            {responseError}
+          </div>
+        )}
         {isLoading && (
           <div className="bg-white rounded-2xl border border-gray-200 p-5 text-sm text-gray-500">
             Loading job requests...
