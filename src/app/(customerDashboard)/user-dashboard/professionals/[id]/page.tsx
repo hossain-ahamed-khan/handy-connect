@@ -1,11 +1,12 @@
 import ProfessionalDetails from "@/components/professionals/ProfessionalDetails";
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function ProfessionalDetailPage({ params }: Props) {
-  const professionalId = Number(params.id);
+export default async function ProfessionalDetailPage({ params }: Props) {
+  const { id } = await params;
+  const professionalId = Number(id);
 
   if (Number.isNaN(professionalId)) {
     return (
