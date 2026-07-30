@@ -4,7 +4,7 @@ import { useState } from "react";
 import { MdBolt, MdClose, MdMessage, MdOutlinePalette, MdOutlineWaterDrop } from "react-icons/md";
 import { useGetMyRequestListQuery } from "@/redux/features/customer/myRequestList/myRequestListApi";
 import { useGetServiceStatusQuery } from "@/redux/features/customer/serviceStatus/serviceStatusApi";
-import Message from "@/app/(customerDashboard)/user-dashboard/message/page";
+import { Message } from "@/components/chat/Message";
 
 const iconMap = {
   water_drop: MdOutlineWaterDrop,

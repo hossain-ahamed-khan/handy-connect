@@ -8,7 +8,7 @@ import {
   useJobInProgressMutation,
   useJobOnTheWayMutation,
 } from "@/redux/features/professional/jobProgress/jobProgressApi";
-import Message from "@/app/(professionalDashboard)/professional-dashboard/message/page";
+import { Message } from "@/components/chat/Message";
 
 type AiCost = {
   min?: number | string;
