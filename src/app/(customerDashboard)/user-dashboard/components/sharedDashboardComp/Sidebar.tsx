@@ -28,8 +28,9 @@ import {
 import Swal from "sweetalert2";
 import { toast } from "sonner";
 import main_logo from "../../../../../assets/main_logo.svg";
-import { logout } from "@/redux/features/auth/authSlice";
-import { useAppDispatch } from "@/redux/hooks";
+import { logout, selectAuth } from "@/redux/features/auth/authSlice";
+import { baseApi } from "@/redux/api/baseApi";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 
 type UserRole = "user" | "professional" | "admin";
 
@@ -174,6 +175,7 @@ export default function Sidebar({ isOpen, toggleSidebar, role }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { accessToken, refreshToken } = useAppSelector(selectAuth);
 
   const navigation: NavSection[] =
     role === "professional"
@@ -208,12 +210,32 @@ export default function Sidebar({ isOpen, toggleSidebar, role }: SidebarProps) {
       confirmButtonColor: "#3085d6",
       cancelButtonColor: "#d33",
       confirmButtonText: "Yes, logout!",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        dispatch(logout());
-        toast.success("Logout successful!");
-        router.push("/login");
+    }).then(async (result) => {
+      if (!result.isConfirmed) {
+        return;
       }
+
+      // Best-effort server logout (blacklist refresh) before clearing client state.
+      if (accessToken && refreshToken) {
+        const baseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
+        try {
+          await fetch(`${baseUrl}/api/auth/logout/`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ refresh: refreshToken }),
+          });
+        } catch {
+          // Ignore network errors; local logout still proceeds.
+        }
+      }
+
+      dispatch(logout());
+      dispatch(baseApi.util.resetApiState());
+      toast.success("Logout successful!");
+      router.push(role === "admin" ? "/admin-login" : "/login");
     });
   };
 
