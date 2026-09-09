@@ -46,10 +46,20 @@ export const authSlice = createSlice({
             state.accessToken = access
             state.refreshToken = refresh
         },
+        /** Update access (and refresh when rotated) without clearing user. */
+        setCredentials: (
+            state,
+            action: PayloadAction<{ access: string; refresh?: string }>,
+        ) => {
+            state.accessToken = action.payload.access
+            if (action.payload.refresh) {
+                state.refreshToken = action.payload.refresh
+            }
+        },
     },
 })
 
-export const { logout, setUser } = authSlice.actions
+export const { logout, setUser, setCredentials } = authSlice.actions
 
 export const selectAuth = (state: RootState) => state.auth
 export const selectToken = (state: RootState) => state.auth.accessToken
